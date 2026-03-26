@@ -1,14 +1,12 @@
 #!/bin/bash
-#$ -N nmars-eval
-#$ -A tma2
-#$ -q gpu
-#$ -l gpu=4
-#$ -l h_rt=4:00:00
-#$ -l h_vmem=64G
 #$ -M tma2@nd.edu
 #$ -m abe
-#$ -o logs/crc/eval_$JOB_ID.out
-#$ -e logs/crc/eval_$JOB_ID.err
+#$ -pe smp 32
+#$ -q gpu@@yye7_lab
+#$ -o logs/$JOB_NAME_$JOB_ID.out
+#$ -j y
+#$ -V
+#$ -l gpu_card=4
 #$ -cwd
 
 # Usage: qsub scripts/crc/eval.sh <model_path> <task_name> <run_suffix> [max_gen_toks] [num_fewshot]
@@ -16,9 +14,9 @@
 # Example: qsub scripts/crc/eval.sh outputs/llama3.1-8b-sft-20240326 gsm8k llama3.1-8b-sft 512 4
 MODEL_PATH=${1:?MODEL_PATH required}
 TASK_NAME=${2:?TASK_NAME required}
-RUN_SUFFIX=${3:?RUN_SUFFIX required}   # used in output path and wandb run name
-MAX_GEN_TOKS=${4:-}                     # optional, default 256 (lm_eval default)
-NUM_FEWSHOT=${5:-}                      # optional, uses task default if not set
+RUN_SUFFIX=${3:?RUN_SUFFIX required} # used in output path and wandb run name
+MAX_GEN_TOKS=${4:-}                  # optional, default 256 (lm_eval default)
+NUM_FEWSHOT=${5:-}                   # optional, uses task default if not set
 
 source scripts/crc/bashrc.sh
 

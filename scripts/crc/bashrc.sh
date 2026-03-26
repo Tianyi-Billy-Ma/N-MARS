@@ -9,8 +9,6 @@ source ~/.bashrc
 export HF_HOME="$CACHE_DIR/huggingface"
 export WANDB_DIR="$CACHE_DIR/wandb"
 
-# source ./.venv/bin/activate
-
 export PYTHONDONTWRITEBYTECODE=1
 export WANDB_PROJECT="n-mars"
 export WANDB_ENTITY="mtybilly"
