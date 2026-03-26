@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=nmars-grpo
-#SBATCH --account=tma3
+#SBATCH --account=bgdn-delta-gpu
 #SBATCH --partition=gpuA100x4
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -10,8 +10,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --mail-user=tma2@nd.edu
 #SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH --output=logs/delta/grpo_%j.out
-#SBATCH --error=logs/delta/grpo_%j.err
+#SBATCH --output=logs/%x_%j.out
 
 # Usage: sbatch scripts/delta/grpo_train.sh configs/train/grpo_template.yaml
 CONFIG=${1:-configs/train/grpo_template.yaml}

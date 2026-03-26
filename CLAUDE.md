@@ -102,7 +102,7 @@ qsub scripts/crc/eval.sh configs/eval/gsm8k.yaml
 
 ### UIUC Delta (SLURM — uses `sbatch`)
 
-- Account: `tma3`, Partition: `gpuA100x4` (or `gpuA40x4`)
+- Account: `bgdn-delta-gpu`, Partition: `gpuA100x4` (or `gpuA40x4`)
 - Email: `tma2@nd.edu`
 
 ```bash

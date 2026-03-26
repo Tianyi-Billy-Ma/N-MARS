@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=nmars-eval
-#SBATCH --account=tma3
+#SBATCH --account=bgdn-delta-gpu
 #SBATCH --partition=gpuA100x4
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -10,8 +10,7 @@
 #SBATCH --time=4:00:00
 #SBATCH --mail-user=tma2@nd.edu
 #SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH --output=logs/delta/eval_%j.out
-#SBATCH --error=logs/delta/eval_%j.err
+#SBATCH --output=logs/%x_%j.out
 
 # Usage: sbatch scripts/delta/eval.sh <model_path> <task_name> <run_suffix> [max_gen_toks]
 # Example: sbatch scripts/delta/eval.sh outputs/llama3.1-8b-sft-20240326 gsm8k llama3.1-8b-sft
