@@ -2,7 +2,7 @@
 name = "n-mars"
 version = "0.1.0"
 description = "Non-Monotonic Autoregressive Sequence Models"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "ms-swift[llm]",
     "lm-eval",
@@ -27,6 +27,14 @@ dev-dependencies = [
     "pytest",
     "ipython",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
 
 [tool.ruff]
 line-length = 100
