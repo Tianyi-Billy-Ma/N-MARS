@@ -192,9 +192,11 @@ cython_debug/
 .ruff_cache/
 
 # Experiment outputs and logs
-outputs/*
-!outputs/.gitkeep
+outputs/
 logs/
+
+# OMC state
+.omc/
 
 # PyPI configuration file
 .pypirc
