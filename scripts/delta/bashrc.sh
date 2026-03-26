@@ -2,7 +2,6 @@
 # Shared environment setup for UIUC Delta (SLURM)
 # Source this at the top of every job script: source scripts/delta/bashrc.sh
 
-module reset
 # module load python/3.11
 module load aws-ofi-nccl/1.14.2
 
