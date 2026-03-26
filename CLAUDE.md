@@ -39,17 +39,17 @@ Eval is driven by CLI args, not YAML configs. YAML files under `configs/eval/` a
 
 ```bash
 # args: <model_path> <task_name> <run_suffix>
-uv run lm_eval \
+uv run accelerate launch -m lm_eval \
   --model hf \
-  --model_args pretrained=<model_path>,parallelize=True \
+  --model_args pretrained=<model_path> \
   --tasks gsm8k \
-  --batch_size 128 \
+  --batch_size auto:32 \
   --output_path outputs/<run_suffix> \
   --wandb_args project=n-mars,name=gsm8k-<run_suffix>,group=lm_eval \
   --seed 42 --log_samples --apply_chat_template
 ```
 
-`parallelize=True` distributes the model across all visible GPUs. On HPC, pass the three positional args to the eval scripts (see HPC section).
+`accelerate launch` runs DDP across all visible GPUs (each GPU holds a full model copy and processes different batches). On HPC, pass the three positional args to the eval scripts (see HPC section).
 
 ### Linting / Tests
 

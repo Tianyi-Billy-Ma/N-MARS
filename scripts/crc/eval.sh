@@ -11,23 +11,31 @@
 #$ -e logs/crc/eval_$JOB_ID.err
 #$ -cwd
 
-# Usage: qsub scripts/crc/eval.sh <model_path> <task_name> <run_suffix>
+# Usage: qsub scripts/crc/eval.sh <model_path> <task_name> <run_suffix> [max_gen_toks]
 # Example: qsub scripts/crc/eval.sh outputs/llama3.1-8b-sft-20240326 gsm8k llama3.1-8b-sft
+# Example: qsub scripts/crc/eval.sh outputs/llama3.1-8b-sft-20240326 gsm8k llama3.1-8b-sft 512
 MODEL_PATH=${1:?MODEL_PATH required}
 TASK_NAME=${2:?TASK_NAME required}
 RUN_SUFFIX=${3:?RUN_SUFFIX required}   # used in output path and wandb run name
+MAX_GEN_TOKS=${4:-}                     # optional, default 256 (lm_eval default)
 
 source scripts/crc/bashrc.sh
 
 OUTPUT_PATH=outputs/${RUN_SUFFIX}
 
-lm_eval \
+MAX_GEN_TOKS_FLAG=""
+if [ -n "${MAX_GEN_TOKS}" ]; then
+  MAX_GEN_TOKS_FLAG="--max_gen_toks ${MAX_GEN_TOKS}"
+fi
+
+accelerate launch -m lm_eval \
   --model hf \
-  --model_args pretrained=${MODEL_PATH},parallelize=True \
+  --model_args pretrained=${MODEL_PATH} \
   --tasks ${TASK_NAME} \
-  --batch_size 128 \
+  --batch_size auto:32 \
   --output_path ${OUTPUT_PATH} \
   --wandb_args project=${WANDB_PROJECT},name=${TASK_NAME}-${RUN_SUFFIX},group=lm_eval \
   --seed 42 \
   --log_samples \
-  --apply_chat_template
+  --apply_chat_template \
+  ${MAX_GEN_TOKS_FLAG}

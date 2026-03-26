@@ -9,7 +9,7 @@
 model: hf
 model_args:
   pretrained: meta-llama/Llama-3.1-8B # base model, not instruct
-  parallelize: true # spreads across all available GPUs
+  # Use accelerate launch for DDP across multiple GPUs
 
 tasks:
   - minerva_math500   # dataset: HuggingFaceH4/MATH-500, Minerva-style 4-shot prompting
