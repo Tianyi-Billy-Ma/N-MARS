@@ -16,8 +16,8 @@ export USERNAME="tma3"
 export PROJECT_CODE="bgdn"
 export HDD_DIR="/work/hdd/${PROJECT_CODE}/${USERNAME}"
 export NVME_DIR="/work/nvme/${PROJECT_CODE}/${USERNAME}"
-export HF_HOME="${NVME_DIR}/.cache/huggingface"
-export WANDB_DIR="${NVME_DIR}/.cache/wandb"
+export HF_HOME="/projects/${PROJECT_CODE}/${USERNAME}/.cache/huggingface"
+export WANDB_DIR="/projects/${PROJECT_CODE}/${USERNAME}/.cache/wandb"
 
 # Ensure cache directories exist
 mkdir -p "${HF_HOME}" "${WANDB_DIR}"
