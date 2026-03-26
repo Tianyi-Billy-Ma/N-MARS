@@ -44,6 +44,6 @@ accelerate launch -m lm_eval \
   --wandb_args project=${WANDB_PROJECT},name=${TASK_NAME}-${RUN_SUFFIX},group=lm_eval \
   --seed 42 \
   --log_samples \
-  --confirm_unsafe_code \
+  --confirm_run_unsafe_code \
   ${MAX_GEN_TOKS_FLAG} \
   ${NUM_FEWSHOT_FLAG}
