@@ -2,7 +2,7 @@
 #$ -N nmars-eval
 #$ -A tma2
 #$ -q gpu
-#$ -l gpu=4
+#$ -l gpu=2
 #$ -l h_rt=4:00:00
 #$ -l h_vmem=64G
 #$ -M tma2@nd.edu
