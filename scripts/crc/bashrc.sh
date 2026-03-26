@@ -4,12 +4,10 @@
 
 # module load python/3.11
 
-export USERNAME="tma3"
-export PROJECT_CODE="bgdn"
-export HDD_DIR="/work/hdd/${PROJECT_CODE}/${USERNAME}"
-export NVME_DIR="/work/nvme/${PROJECT_CODE}/${USERNAME}"
-export HF_HOME="/work/hdd/${PROJECT_CODE}/${USERNAME}/huggingface"
-export WANDB_DIR="/work/hdd/${PROJECT_CODE}/${USERNAME}/wandb"
+source ~/.bashrc
+
+export HF_HOME="$CACHE_DIR/huggingface"
+export WANDB_DIR="$CACHE_DIR/wandb"
 
 # source ./.venv/bin/activate
 
@@ -19,7 +17,3 @@ export WANDB_ENTITY="mtybilly"
 
 # Activate uv-managed virtual environment
 source ./venv/bin/activate
-
-# Multi-GPU comms
-export NCCL_DEBUG=INFO
-export OMP_NUM_THREADS=4
