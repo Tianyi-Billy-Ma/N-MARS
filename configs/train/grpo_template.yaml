@@ -1,0 +1,62 @@
+# ms-swift GRPO training config template
+# Usage: swift rlhf --config configs/train/grpo_template.yaml
+
+# Model
+model: meta-llama/Llama-3.1-8B-Instruct  # or local path
+
+# Dataset — must have prompt + optional chosen/rejected or reward_funcs
+dataset:
+  - AI-MO/NuminaMath-TIR  # replace with target dataset
+dataset_test_ratio: 0.01
+max_length: 2048
+max_prompt_length: 1024
+
+# RLHF method
+rlhf_type: grpo
+
+# Reward: use reward_funcs for code/math verifiable rewards
+# reward_model: /path/to/reward/model  # alternative to reward_funcs
+reward_funcs:
+  - accuracy   # built-in verifiable reward (math/code)
+  - format     # optional format reward
+
+# Fine-tuning method applied to the policy model
+sft_type: lora
+lora_rank: 8
+lora_alpha: 32
+lora_dropout: 0.05
+target_modules: all-linear
+
+# GRPO hyperparams
+num_generations: 8         # G in GRPO (samples per prompt)
+beta: 0.001                # KL penalty coefficient
+epsilon: 0.2               # clip ratio
+
+# Training
+num_train_epochs: 2
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 8
+learning_rate: 5.0e-6
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+bf16: true
+gradient_checkpointing: true
+
+# Evaluation
+eval_strategy: steps
+eval_steps: 100
+save_strategy: steps
+save_steps: 100
+save_total_limit: 3
+
+# Output — slug: <model>-<dataset>-<timestamp>
+output_dir: outputs/llama3.1-8b-numina-grpo-20240101_120000
+
+# Logging / W&B
+report_to: wandb
+run_name: llama3.1-8b-numina-grpo-20240101_120000
+logging_steps: 5
+
+# Misc
+seed: 42
+dataloader_num_workers: 4

@@ -1,0 +1,51 @@
+# ms-swift SFT training config template
+# Usage: swift sft --config configs/train/sft_template.yaml
+
+# Model
+model: meta-llama/Llama-3.1-8B-Instruct  # or local path
+# model_revision: main
+
+# Dataset
+dataset:
+  - alpaca-en  # replace with target dataset
+dataset_test_ratio: 0.01
+max_length: 2048
+
+# Fine-tuning method
+sft_type: lora
+lora_rank: 8
+lora_alpha: 32
+lora_dropout: 0.05
+target_modules: all-linear
+
+# Training
+num_train_epochs: 3
+per_device_train_batch_size: 4
+per_device_eval_batch_size: 4
+gradient_accumulation_steps: 4
+learning_rate: 1.0e-4
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+weight_decay: 0.01
+max_grad_norm: 1.0
+bf16: true
+gradient_checkpointing: true
+
+# Evaluation
+eval_strategy: steps
+eval_steps: 200
+save_strategy: steps
+save_steps: 200
+save_total_limit: 3
+
+# Output — slug: <model>-<dataset>-<timestamp>
+output_dir: outputs/llama3.1-8b-alpaca-en-20240101_120000
+
+# Logging / W&B
+report_to: wandb
+run_name: llama3.1-8b-alpaca-en-20240101_120000
+logging_steps: 10
+
+# Misc
+seed: 42
+dataloader_num_workers: 4

@@ -1,0 +1,27 @@
+# MATH-500 eval reference config
+# The canonical way to run eval is via the shell scripts:
+#   qsub scripts/crc/eval.sh <model_path> minerva_math500 <run_suffix>
+#   sbatch scripts/delta/eval.sh <model_path> minerva_math500 <run_suffix>
+#
+# This file documents the equivalent CLI args for reference.
+# Note: verify exact task name with: lm_eval --tasks list | grep math
+
+model: hf
+model_args:
+  pretrained: meta-llama/Llama-3.1-8B # base model, not instruct
+  parallelize: true # spreads across all available GPUs
+
+tasks:
+  - minerva_math500   # dataset: HuggingFaceH4/MATH-500, Minerva-style 4-shot prompting
+
+batch_size: 128
+seed: 42
+log_samples: true
+apply_chat_template: true
+
+output_path: outputs/<run_suffix>   # e.g. outputs/llama3.1-8b-math500-20240326_120000
+
+wandb_args:
+  project: n-mars
+  name: math500-<run_suffix>
+  group: lm_eval

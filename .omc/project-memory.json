@@ -1,0 +1,140 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1774498330292,
+  "projectRoot": "/mnt/black/openclaw-workspace/N-MARS",
+  "techStack": {
+    "languages": [],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {},
+  "hotPaths": [
+    {
+      "path": "configs/eval/math500.yaml",
+      "accessCount": 10,
+      "lastAccessed": 1774501810159,
+      "type": "file"
+    },
+    {
+      "path": "scripts/delta/eval.sh",
+      "accessCount": 6,
+      "lastAccessed": 1774502295926,
+      "type": "file"
+    },
+    {
+      "path": "scripts/crc/eval.sh",
+      "accessCount": 5,
+      "lastAccessed": 1774500968697,
+      "type": "file"
+    },
+    {
+      "path": "CLAUDE.md",
+      "accessCount": 5,
+      "lastAccessed": 1774500977208,
+      "type": "file"
+    },
+    {
+      "path": "configs/eval/mbpp.yaml",
+      "accessCount": 4,
+      "lastAccessed": 1774501810104,
+      "type": "file"
+    },
+    {
+      "path": "configs/eval/gsm8k.yaml",
+      "accessCount": 4,
+      "lastAccessed": 1774501810108,
+      "type": "file"
+    },
+    {
+      "path": "scripts/crc/sft_train.sh",
+      "accessCount": 3,
+      "lastAccessed": 1774500693824,
+      "type": "file"
+    },
+    {
+      "path": "scripts/crc/grpo_train.sh",
+      "accessCount": 3,
+      "lastAccessed": 1774500693933,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 2,
+      "lastAccessed": 1774500047346,
+      "type": "file"
+    },
+    {
+      "path": "scripts/delta/sft_train.sh",
+      "accessCount": 2,
+      "lastAccessed": 1774500703791,
+      "type": "file"
+    },
+    {
+      "path": "scripts/delta/grpo_train.sh",
+      "accessCount": 2,
+      "lastAccessed": 1774500703901,
+      "type": "file"
+    },
+    {
+      "path": "pyproject.toml",
+      "accessCount": 1,
+      "lastAccessed": 1774499959129,
+      "type": "file"
+    },
+    {
+      "path": "src/n_mars/__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1774499962731,
+      "type": "file"
+    },
+    {
+      "path": "configs/train/sft_template.yaml",
+      "accessCount": 1,
+      "lastAccessed": 1774499981155,
+      "type": "file"
+    },
+    {
+      "path": "configs/train/grpo_template.yaml",
+      "accessCount": 1,
+      "lastAccessed": 1774499981266,
+      "type": "file"
+    },
+    {
+      "path": "scripts/crc/bashrc.sh",
+      "accessCount": 1,
+      "lastAccessed": 1774500682972,
+      "type": "file"
+    },
+    {
+      "path": "scripts/delta/bashrc.sh",
+      "accessCount": 1,
+      "lastAccessed": 1774500683075,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

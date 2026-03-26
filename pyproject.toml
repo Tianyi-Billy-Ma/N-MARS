@@ -1,0 +1,36 @@
+[project]
+name = "n-mars"
+version = "0.1.0"
+description = "Non-Monotonic Autoregressive Sequence Models"
+requires-python = ">=3.11"
+dependencies = [
+    "ms-swift[llm]",
+    "lm-eval",
+    "transformers",
+    "datasets",
+    "wandb",
+    "pyyaml",
+    "torch",
+    "accelerate",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/n_mars"]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff",
+    "pytest",
+    "ipython",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
