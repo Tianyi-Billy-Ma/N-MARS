@@ -21,7 +21,7 @@ export HF_HOME="/work/hdd/${PROJECT_CODE}/${USERNAME}/.cache/huggingface"
 export WANDB_DIR="/work/hdd/${PROJECT_CODE}/${USERNAME}/.cache/wandb"
 
 # Ensure cache directories exist
-mkdir -p "${HF_HUB}" "${WANDB_DIR}"
+mkdir -p "${HF_HOME}" "${WANDB_DIR}"
 
 # source ./.venv/bin/activate
 
