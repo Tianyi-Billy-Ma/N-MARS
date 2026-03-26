@@ -14,4 +14,5 @@ export WANDB_PROJECT="n-mars"
 export WANDB_ENTITY="mtybilly"
 
 # Activate uv-managed virtual environment
+cd $CACHE_DIR/N-MARS
 source ./venv/bin/activate
