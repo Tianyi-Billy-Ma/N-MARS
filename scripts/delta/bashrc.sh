@@ -28,3 +28,6 @@ export PYTHONDONTWRITEBYTECODE=1
 # W&B
 export WANDB_PROJECT=n-mars
 export WANDB_ENTITY="mtybilly"
+
+# For MBPP evaluation
+export HF_ALLOW_CODE_EVAL="1"
