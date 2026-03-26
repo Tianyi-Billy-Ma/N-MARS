@@ -27,7 +27,7 @@ OUTPUT_PATH=outputs/${RUN_SUFFIX}
 
 MAX_GEN_TOKS_FLAG=""
 if [ -n "${MAX_GEN_TOKS}" ]; then
-  MAX_GEN_TOKS_FLAG="--max_gen_toks ${MAX_GEN_TOKS}"
+  MAX_GEN_TOKS_FLAG="--gen_kwargs max_gen_toks=${MAX_GEN_TOKS}"
 fi
 
 NUM_FEWSHOT_FLAG=""
