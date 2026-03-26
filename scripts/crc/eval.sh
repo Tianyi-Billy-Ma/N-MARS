@@ -7,6 +7,7 @@
 #$ -j y
 #$ -V
 #$ -l gpu_card=4
+#$ -N N-MARS
 #$ -cwd
 
 # Usage: qsub scripts/crc/eval.sh <model_path> <task_name> <run_suffix> [max_gen_toks] [num_fewshot]
