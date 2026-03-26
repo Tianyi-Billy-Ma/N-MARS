@@ -17,8 +17,11 @@ export USERNAME="tma3"
 export PROJECT_CODE="bgdn"
 export HDD_DIR="/work/hdd/${PROJECT_CODE}/${USERNAME}"
 export NVME_DIR="/work/nvme/${PROJECT_CODE}/${USERNAME}"
-export HF_HOME="/work/hdd/${PROJECT_CODE}/${USERNAME}/huggingface"
-export WANDB_DIR="/work/hdd/${PROJECT_CODE}/${USERNAME}/wandb"
+export HF_HOME="/work/hdd/${PROJECT_CODE}/${USERNAME}/.cache/huggingface"
+export WANDB_DIR="/work/hdd/${PROJECT_CODE}/${USERNAME}/.cache/wandb"
+
+# Ensure cache directories exist
+mkdir -p "${HF_HUB_CACHE}" "${WANDB_DIR}"
 
 # source ./.venv/bin/activate
 
