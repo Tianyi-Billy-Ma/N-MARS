@@ -46,7 +46,7 @@ uv run accelerate launch -m lm_eval \
   --batch_size auto:32 \
   --output_path outputs/<run_suffix> \
   --wandb_args project=n-mars,name=gsm8k-<run_suffix>,group=lm_eval \
-  --seed 42 --log_samples --apply_chat_template
+  --seed 42 --log_samples
 ```
 
 `accelerate launch` runs DDP across all visible GPUs (each GPU holds a full model copy and processes different batches). On HPC, pass the three positional args to the eval scripts (see HPC section).

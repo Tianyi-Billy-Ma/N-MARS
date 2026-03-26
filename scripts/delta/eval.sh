@@ -38,5 +38,4 @@ accelerate launch -m lm_eval \
   --wandb_args project=${WANDB_PROJECT},name=${TASK_NAME}-${RUN_SUFFIX},group=lm_eval \
   --seed 42 \
   --log_samples \
-  --apply_chat_template \
   ${MAX_GEN_TOKS_FLAG}
