@@ -195,7 +195,7 @@ cython_debug/
 outputs/
 logs/
 wandb/
-/data/
+data/
 uv.lock
 
 # OMC state
