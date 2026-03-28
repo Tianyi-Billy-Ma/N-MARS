@@ -42,7 +42,7 @@ python -m baselines.self_backtracking.expert_iteration \
     --base_model ${MODEL} \
     --output_dir ${STAGE2_DIR} \
     --num_iterations 3 \
-    --b 1 --n 32 \
+    --b 1 --n 8 \
     --max_new_tokens 512 \
     --temperature 0.7 \
     --ei_epochs 3 \
