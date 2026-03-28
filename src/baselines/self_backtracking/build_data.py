@@ -5,7 +5,7 @@ D_back: backtrack traces — perturbed arithmetic errors followed by <backtrack>
         correct continuation.
 
 Usage:
-    python -m n_mars.baselines.self_backtracking.build_data \
+    python -m baselines.self_backtracking.build_data \
         --output_dir data/self_backtracking/gsm8k \
         --error_rate 0.5 \
         --seed 42

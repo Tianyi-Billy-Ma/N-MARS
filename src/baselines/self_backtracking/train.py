@@ -8,7 +8,7 @@ Two data splits are trained jointly:
           (prompt masked AND the error step between second-last and last newline masked)
 
 Usage:
-    python -m n_mars.baselines.self_backtracking.train \
+    python -m baselines.self_backtracking.train \
         --model_name_or_path meta-llama/Llama-3.2-1B \
         --data_dir data/self_backtracking/gsm8k \
         --output_dir outputs/self-backtrack-llama3.2-1b-gsm8k \

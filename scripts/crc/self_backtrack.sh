@@ -34,7 +34,7 @@ echo ""
 # Step 1: Build training data (D_op + D_back)
 # ---------------------------------------------------------------
 echo "=== Step 1: Building training data ==="
-python -m n_mars.baselines.self_backtracking.build_data \
+python -m baselines.self_backtracking.build_data \
     --output_dir ${DATA_DIR} \
     --error_rate 0.5 \
     --seed 42
@@ -45,7 +45,7 @@ echo ""
 # Step 2: Train (dual-loss SFT, 3 epochs)
 # ---------------------------------------------------------------
 echo "=== Step 2: Training ==="
-WANDB_MODE=online python -m n_mars.baselines.self_backtracking.train \
+WANDB_MODE=online python -m baselines.self_backtracking.train \
     --model_name_or_path ${MODEL} \
     --data_dir ${DATA_DIR}/hf_dataset \
     --output_dir ${OUTPUT_DIR} \
@@ -66,7 +66,7 @@ echo ""
 # Step 3a: Greedy evaluation
 # ---------------------------------------------------------------
 echo "=== Step 3a: Greedy evaluation ==="
-python -m n_mars.baselines.self_backtracking.evaluate \
+python -m baselines.self_backtracking.evaluate \
     --model_path ${OUTPUT_DIR} \
     --output_path ${OUTPUT_DIR}/eval_greedy.json \
     --greedy_only \
@@ -79,7 +79,7 @@ echo ""
 # Step 3b: Backtracking evaluation (b=1, n=32)
 # ---------------------------------------------------------------
 echo "=== Step 3b: Backtracking evaluation (b=1, n=32) ==="
-python -m n_mars.baselines.self_backtracking.evaluate \
+python -m baselines.self_backtracking.evaluate \
     --model_path ${OUTPUT_DIR} \
     --output_path ${OUTPUT_DIR}/eval_backtrack_b1_n32.json \
     --b 1 --n 32 \

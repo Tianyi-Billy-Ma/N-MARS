@@ -3,13 +3,13 @@
 Usage
 -----
 # Full backtracking evaluation
-python -m n_mars.baselines.self_backtracking.evaluate \
+python -m baselines.self_backtracking.evaluate \
     --model_path outputs/self-backtrack-llama3.2-1b-gsm8k \
     --output_path outputs/self-backtrack-llama3.2-1b-gsm8k/eval_results.json \
     --b 1 --n 32 --max_new_tokens 512 --seed 42
 
 # Greedy-only evaluation (control)
-python -m n_mars.baselines.self_backtracking.evaluate \
+python -m baselines.self_backtracking.evaluate \
     --model_path outputs/self-backtrack-llama3.2-1b-gsm8k \
     --output_path outputs/self-backtrack-llama3.2-1b-gsm8k/eval_greedy.json \
     --greedy_only --seed 42
@@ -26,7 +26,7 @@ from datasets import load_dataset
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from n_mars.baselines.self_backtracking.decode import SelfBackTrackingDecoder
+from baselines.self_backtracking.decode import SelfBackTrackingDecoder
 
 # ---------------------------------------------------------------------------
 # Answer extraction
