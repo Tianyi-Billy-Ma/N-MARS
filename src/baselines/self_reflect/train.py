@@ -35,10 +35,16 @@ from transformers import (
 logger = logging.getLogger(__name__)
 
 PROMPT_MARKER = "Answer:\n"
+NL_MARKER = "Wait, that is incorrect. Let me reconsider."
 
 
-def build_tokenize_fn(tokenizer, max_length: int):
-    """Standard SFT tokenization — mask only the prompt, supervise everything else."""
+def build_tokenize_fn(tokenizer, max_length: int, mask_errors: bool = False):
+    """Tokenize with optional error masking (mSFT mode).
+
+    When mask_errors=False (SFT): mask only the prompt.
+    When mask_errors=True (mSFT): mask prompt AND error tokens
+    before each NL reflection marker.
+    """
 
     def tokenize(example: dict) -> dict:
         text: str = example["text"]
@@ -52,13 +58,81 @@ def build_tokenize_fn(tokenizer, max_length: int):
         input_ids = encoding["input_ids"]
         labels = list(input_ids)
 
-        # Mask prompt tokens (everything up to "Answer:\n")
+        # 1. Mask prompt tokens (everything up to "Answer:\n")
         marker_pos = text.find(PROMPT_MARKER)
+        n_prompt = 0
         if marker_pos != -1:
             pre_text = text[: marker_pos + len(PROMPT_MARKER)]
-            pre_ids = tokenizer(pre_text, add_special_tokens=False)["input_ids"]
-            for i in range(min(len(pre_ids), len(labels))):
+            pre_ids = tokenizer(
+                pre_text, add_special_tokens=False
+            )["input_ids"]
+            n_prompt = min(len(pre_ids), len(labels))
+            for i in range(n_prompt):
                 labels[i] = -100
+
+        # 2. For mSFT: mask error tokens before each NL marker
+        if mask_errors and NL_MARKER in text:
+            response_text = text[marker_pos + len(PROMPT_MARKER):]
+            # Split on NL marker to find error boundaries
+            parts = response_text.split(NL_MARKER)
+            # parts[0] = "correct_prefix error_tokens "
+            # parts[1] = "\n correction error_tokens "
+            # parts[2] = "\n correction ..."
+            # For each part except the last, the error tokens
+            # are at the END (right before where NL_MARKER was).
+            # We reconstruct positions by tokenizing progressively.
+            cursor = marker_pos + len(PROMPT_MARKER)
+            for i, part in enumerate(parts[:-1]):
+                # Find where correction text ends and errors begin
+                # The correction is the text from the start of this
+                # part up to where the original response tokens diverge.
+                # Since we don't have exact error boundaries in the NL
+                # format, we use the original dataset's structure:
+                # error tokens are random garbage before the NL marker.
+                #
+                # Approach: tokenize up to the start of error tokens.
+                # The error tokens in our dataset are random injected
+                # tokens that appear right before the NL marker.
+                # We find the NL marker position in the text and mask
+                # backward to find the error span start.
+                #
+                # Simpler approach: the original data has N backtrack
+                # tokens replaced with 1 NL marker. The error span is
+                # N tokens before the NL marker position.
+                # But we don't know N here.
+                #
+                # Practical approach: mask from the last newline in the
+                # part up to the NL marker. Error tokens typically
+                # appear within a single line before the marker.
+
+                # Find the NL marker in the full text
+                nl_pos = text.find(NL_MARKER, cursor)
+                if nl_pos == -1:
+                    break
+
+                # Find the last newline before the NL marker
+                # (error tokens are on the same line as the marker)
+                last_nl = text.rfind("\n", cursor, nl_pos)
+                if last_nl == -1:
+                    error_start_text = cursor
+                else:
+                    error_start_text = last_nl + 1
+
+                # Tokenize the text up to error start and NL marker
+                pre_err_ids = tokenizer(
+                    text[:error_start_text], add_special_tokens=False
+                )["input_ids"]
+                pre_nl_ids = tokenizer(
+                    text[:nl_pos], add_special_tokens=False
+                )["input_ids"]
+
+                # Mask tokens between error start and NL marker
+                start_idx = len(pre_err_ids)
+                end_idx = len(pre_nl_ids)
+                for j in range(start_idx, min(end_idx, len(labels))):
+                    labels[j] = -100
+
+                cursor = nl_pos + len(NL_MARKER)
 
         return {
             "input_ids": input_ids,
@@ -123,6 +197,10 @@ def main():
     parser.add_argument("--max_length", type=int, default=2048)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--bf16", action="store_true")
+    parser.add_argument(
+        "--mask_errors", action="store_true",
+        help="mSFT mode: mask error tokens before NL markers (label=-100)",
+    )
     parser.add_argument("--wandb_project", type=str, default="n-mars")
     parser.add_argument("--wandb_run_name", type=str, default=None)
     args = parser.parse_args()
@@ -147,7 +225,11 @@ def main():
     else:
         train_dataset = dataset
 
-    tokenize_fn = build_tokenize_fn(tokenizer, max_length=args.max_length)
+    mode = "mSFT" if args.mask_errors else "SFT"
+    logger.info("Training mode: %s (mask_errors=%s)", mode, args.mask_errors)
+    tokenize_fn = build_tokenize_fn(
+        tokenizer, max_length=args.max_length, mask_errors=args.mask_errors,
+    )
     tokenized = train_dataset.map(
         tokenize_fn,
         remove_columns=train_dataset.column_names,
