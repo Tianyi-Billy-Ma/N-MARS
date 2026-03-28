@@ -61,7 +61,7 @@ Experiments required to address reviewer concerns. Organized by priority (critic
 | STaR+ (paper Table 2) | STaR+ | greedy | 26.5 |
 | ReVISE (paper Table 2) | SFT+RL | multi-pass | 28.1 |
 | **Self-Backtracking** | dual-loss SFT | greedy | **26.4** |
-| Self-Backtracking | dual-loss SFT | backtrack (b=1,n=32) | *pending* |
+| Self-Backtracking | dual-loss SFT | backtrack (b=1,n=32) | 20.2 |
 | **N-MARS (ours)** | mSFT+GRPO | single-pass | **31.3** |
 
 **Key observations:**
@@ -79,9 +79,18 @@ Experiments required to address reviewer concerns. Organized by priority (critic
 | Inference (search) | Multi-round beam search (b=1, n=32) | N/A (single pass) |
 | Error masking | Mask error step from loss | Mask error tokens from loss |
 
-**Eval details:** 1,319 GSM8K test samples, avg 112.4 tokens/sample, wall-clock 1,594s (~27 min).
+**Eval details:**
+- Greedy: 1,319 samples, avg 112.4 tokens/sample, wall-clock 1,594s (~27 min)
+- Backtrack: 1,319 samples, avg 175.2 tokens/sample, avg 0.00 backtracks/sample, wall-clock 4,656s (~1.3h)
 
-**Pending:** Backtracking eval (b=1, n=32) and MATH-500 results.
+**Backtracking search result analysis:**
+The backtracking decoder (b=1, n=32) **underperforms** greedy by 6.2 points (20.2 vs 26.4). Two factors explain this:
+1. **The model never emits `<backtrack>`:** avg_backtracks_per_sample = 0.00. The dual-loss SFT teaches the model to recognize `<backtrack>` in training data but does not incentivize emitting it during generation. In the original paper, Self-Backtracking uses **expert iteration** (Stage 2) to distill backtracking behavior into the model — we only implemented Stage 1 (SFT).
+2. **Beam search + sampling adds noise:** With n=32 beam candidates and temperature=0.7, the search explores diverse but lower-quality paths. Without backtracking to prune bad paths, this diversity hurts rather than helps.
+
+This result highlights a key advantage of N-MARS: the `<UNDO>` token is trained via **GRPO reinforcement learning** with a reward that explicitly incentivizes correct backtracking behavior, whereas Self-Backtracking's SFT-only training does not produce models that actively use the backtrack mechanism at inference time without additional expert iteration.
+
+**Pending:** MATH-500 results (running on CRC).
 
 ---
 
