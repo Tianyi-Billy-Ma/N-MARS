@@ -31,9 +31,14 @@ MATH_50K_SIZE = 50_000
 
 
 def add_global_ids(ds: Dataset) -> Dataset:
-    """Add an 'id' column with format <type>_<global_idx>."""
+    """Add 'id' column and reorder: id, query, response, then rest."""
     ids = [f"{row['type']}_{i}" for i, row in enumerate(ds)]
-    return ds.add_column("id", ids)
+    ds = ds.add_column("id", ids)
+    # Reorder columns: id, query, response first
+    cols = ds.column_names
+    ordered = ["id", "query", "response"]
+    ordered += [c for c in cols if c not in ordered]
+    return ds.select_columns(ordered)
 
 
 def stratified_sample(
@@ -77,6 +82,97 @@ def stratified_sample(
 
     selected.sort()
     return ds.select(selected)
+
+
+def _push_dataset_card(
+    repo_id: str,
+    full_ds: Dataset,
+    math_ds: Dataset,
+    math_50k_ds: Dataset,
+) -> None:
+    """Create and push a dataset card (README.md) to the HuggingFace repo."""
+    from huggingface_hub import HfApi
+
+    math_50k_counts = Counter(math_50k_ds["type"])
+
+    card = f"""\
+---
+license: mit
+task_categories:
+  - text-generation
+  - question-answering
+language:
+  - en
+tags:
+  - math
+  - reasoning
+  - metamath
+source_datasets:
+  - meta-math/MetaMathQA
+---
+
+# MetaMathQA Subsets
+
+Curated subsets of [meta-math/MetaMathQA](https://huggingface.co/datasets/meta-math/MetaMathQA) \
+for mathematical reasoning experiments.
+
+## Subsets
+
+| Subset | Samples | Description |
+|--------|---------|-------------|
+| `full` | {len(full_ds):,} | All MetaMathQA samples (unchanged) |
+| `MATH` | {len(math_ds):,} | MATH_* types only (AnsAug, Rephrased, FOBAR, SV) |
+| `MATH-50K` | {len(math_50k_ds):,} | Stratified 50K sample from MATH subset |
+
+### MATH-50K Type Distribution
+
+| Type | Count | Proportion |
+|------|-------|------------|
+| MATH_AnsAug | {math_50k_counts.get("MATH_AnsAug", 0):,} | \
+{math_50k_counts.get("MATH_AnsAug", 0) / len(math_50k_ds) * 100:.1f}% |
+| MATH_Rephrased | {math_50k_counts.get("MATH_Rephrased", 0):,} | \
+{math_50k_counts.get("MATH_Rephrased", 0) / len(math_50k_ds) * 100:.1f}% |
+| MATH_FOBAR | {math_50k_counts.get("MATH_FOBAR", 0):,} | \
+{math_50k_counts.get("MATH_FOBAR", 0) / len(math_50k_ds) * 100:.1f}% |
+| MATH_SV | {math_50k_counts.get("MATH_SV", 0):,} | \
+{math_50k_counts.get("MATH_SV", 0) / len(math_50k_ds) * 100:.1f}% |
+
+## Columns
+
+| Column | Description |
+|--------|-------------|
+| `id` | Unique identifier in format `<type>_<global_idx>` |
+| `type` | Question type (e.g., MATH_AnsAug, GSM_Rephrased) |
+| `query` | The question text |
+| `original_question` | Original question from the source dataset |
+| `response` | Chain-of-thought solution ending with "The answer is: ..." |
+
+## Usage
+
+```python
+from datasets import load_dataset
+
+# Load the MATH-50K subset
+ds = load_dataset("{repo_id}", "MATH-50K", split="train")
+
+# Load full dataset
+ds = load_dataset("{repo_id}", "full", split="train")
+```
+
+## Source
+
+Derived from [MetaMathQA](https://huggingface.co/datasets/meta-math/MetaMathQA) \
+(Yu et al., 2024). Stratified sampling uses seed=42 for reproducibility.
+"""
+
+    api = HfApi()
+    api.upload_file(
+        path_or_fileobj=card.encode("utf-8"),
+        path_in_repo="README.md",
+        repo_id=repo_id,
+        repo_type="dataset",
+    )
+    logger.info("Dataset card pushed to %s", repo_id)
 
 
 def main():
@@ -150,6 +246,9 @@ def main():
             config_name=config_name,
             private=False,
         )
+
+    # ----- Push dataset card -----
+    _push_dataset_card(args.repo_id, full_ds, math_ds, math_50k_ds)
 
     logger.info("Done. Dataset at https://huggingface.co/datasets/%s", args.repo_id)
 
