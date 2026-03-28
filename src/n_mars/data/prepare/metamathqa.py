@@ -109,6 +109,20 @@ tags:
   - metamath
 source_datasets:
   - meta-math/MetaMathQA
+configs:
+  - config_name: full
+    data_files:
+      - split: train
+        path: full/train-*.parquet
+  - config_name: MATH
+    data_files:
+      - split: train
+        path: MATH/train-*.parquet
+  - config_name: MATH-50K
+    data_files:
+      - split: train
+        path: MATH-50K/train-*.parquet
+default_config_name: full
 ---
 
 # MetaMathQA Subsets
