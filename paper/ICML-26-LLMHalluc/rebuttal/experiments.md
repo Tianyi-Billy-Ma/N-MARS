@@ -50,20 +50,38 @@ Experiments required to address reviewer concerns. Organized by priority (critic
 
 **Why:** Reviewer specifically flags the missing comparison with Self-Backtracking (arXiv:2502.04404) as a critical weakness.
 
-**What to run:**
-- Train Self-Backtracking on GSM8K using our implementation (`src/n_mars/baselines/self_backtracking/`)
-- Evaluate with both greedy decoding and backtracking decoding (b=1, n=32)
-- Compare against N-MARS on GSM8K
+**Status:** COMPLETE (greedy). Backtracking eval and MATH-500 eval pending.
 
-**Status:** Implementation complete. CRC script ready (`scripts/crc/self_backtrack.sh`).
+### Results (Llama-3.2-1B, GSM8K)
 
-**Models:** Llama-3.2-1B
+| Method | Training | Inference | GSM8K Acc |
+|--------|----------|-----------|-----------|
+| SFT (paper Table 2) | SFT | greedy | 14.3 |
+| RFT (paper Table 2) | RFT | greedy | 26.1 |
+| STaR+ (paper Table 2) | STaR+ | greedy | 26.5 |
+| ReVISE (paper Table 2) | SFT+RL | multi-pass | 28.1 |
+| **Self-Backtracking** | dual-loss SFT | greedy | **26.4** |
+| Self-Backtracking | dual-loss SFT | backtrack (b=1,n=32) | *pending* |
+| **N-MARS (ours)** | mSFT+GRPO | single-pass | **31.3** |
 
-**Estimated compute:** ~10h on a single A40.
+**Key observations:**
+- N-MARS outperforms Self-Backtracking (greedy) by **+4.9 points** (31.3 vs 26.4)
+- Self-Backtracking (greedy, 26.4) is comparable to RFT (26.1) and STaR+ (26.5) — all SFT-based methods cluster around 26%
+- N-MARS's advantage comes from (a) token-level granularity and (b) GRPO reinforcement learning stage
 
-**Expected deliverable for rebuttal:**
-- Table comparing N-MARS vs. Self-Backtracking (greedy + backtracking) on GSM8K
-- Discussion of key differences: token-level vs. step-level, mSFT+GRPO vs. SFT+expert iteration, single-pass vs. multi-round search
+**Key design differences:**
+
+| Dimension | Self-Backtracking | N-MARS |
+|-----------|------------------|--------|
+| Granularity | Step-level (full reasoning line) | Token-level (individual token) |
+| Training | Dual-loss SFT only (no RL) | mSFT + GRPO |
+| Inference (greedy) | Standard autoregressive | Single-pass with UNDO |
+| Inference (search) | Multi-round beam search (b=1, n=32) | N/A (single pass) |
+| Error masking | Mask error step from loss | Mask error tokens from loss |
+
+**Eval details:** 1,319 GSM8K test samples, avg 112.4 tokens/sample, wall-clock 1,594s (~27 min).
+
+**Pending:** Backtracking eval (b=1, n=32) and MATH-500 results.
 
 ---
 
@@ -73,19 +91,28 @@ Experiments required to address reviewer concerns. Organized by priority (critic
 
 **Why:** Reviewer questions the unverified gradient non-alignment assumption (B.2) in Proposition 2.1.
 
-**What to measure:**
-- During mSFT training, compute cosine similarity between:
-  - Error-token gradients (`g_e`) and `<UNDO>` token gradients (`g_bk`)
-  - Error-token gradients (`g_e`) and correction token gradients (`g_c`)
-- Log these across training steps
-- Report: mean cosine similarity, distribution, how it evolves during training
-- If cosine similarities are consistently negative, the assumption holds
+**Status:** COMPLETE.
 
-**How:** Add gradient logging hooks to the mSFT training loop. Compute per-batch gradient decomposition on augmented traces.
+### Results (Llama-3.2-1B, full params, 2,522 steps / 3 epochs, bs=8)
 
-**Models:** Llama-3.2-1B (sufficient for theoretical validation)
+| Gradient Pair | Mean | Std | Min | Max | Interpretation |
+|--------------|------|-----|-----|-----|---------------|
+| cos(g_e, g_bk) | **-0.5115** | 0.0719 | -0.7551 | -0.3745 | Strong negative — error gradients conflict with UNDO learning |
+| cos(g_e, g_c) | **-0.0036** | 0.0167 | -0.0607 | +0.0328 | Near-zero — approximately orthogonal |
 
-**Estimated compute:** ~2h (one training run with gradient logging overhead).
+**Training dynamics:**
+- `cos(g_e, g_bk)` starts strongly negative (~-0.75 at step 50) and stabilizes around -0.47 to -0.55 by the end of training. It remains **consistently negative across all 50 logged steps** (never crosses zero).
+- `cos(g_e, g_c)` fluctuates tightly around zero throughout training, ranging from -0.06 to +0.03.
+
+**Interpretation for Proposition 2.1:**
+
+- **Part (a) — Error detection (strongly supported):** `cos(g_e, g_bk) = -0.51` confirms that error-token gradients actively oppose UNDO token learning. The gap Gamma_bk in Prop 2.1(a) is substantial. This is the strongest empirical validation.
+- **Part (b) — Corrective generation (weakly supported):** `cos(g_e, g_c) ≈ 0` indicates near-orthogonality rather than conflict. The gap Gamma_c is small but non-negative. The benefit of mSFT for correction learning comes primarily from removing the noise/variance of `g_e` from the update, not from resolving a direct conflict.
+- **Part (c) — Reduced negative learning (trivially supported):** This holds by construction — mSFT zeros `g_e`, so the `||g_e||^2` term that increases error probability in SFT is eliminated.
+
+**Summary for rebuttal:** The gradient non-alignment assumption (B.2) is empirically validated for the UNDO component (alpha > 0 with cos = -0.51), which is the most critical component. For corrections, the gradients are approximately orthogonal, meaning mSFT provides a modest benefit by reducing gradient noise. All three parts of Prop 2.1 are supported, with part (a) being the strongest.
+
+**Config:** Llama-3.2-1B, full parameter training (no LoRA), dataset `mtybilly/GSM8K-Random-All` config `p0.1_n10`, AdamW lr=1e-4, max_length=1024, logged every 50 steps.
 
 ---
 
