@@ -1,0 +1,3 @@
+[submodule "external/Self-Backtracking"]
+	path = external/Self-Backtracking
+	url = https://github.com/LAMDASZ-ML/Self-Backtracking.git

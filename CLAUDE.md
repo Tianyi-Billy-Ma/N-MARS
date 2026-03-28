@@ -79,6 +79,7 @@ Both `output_dir` (ms-swift) and `output_path` (lm_eval) in YAML configs must fo
 configs/
   train/         # ms-swift YAML configs (sft_template.yaml, grpo_template.yaml)
   eval/          # lm_eval YAML configs (gsm8k.yaml, mbpp.yaml, math500.yaml)
+external/        # third-party reference codebases (read-only, never import directly)
 outputs/         # experiment results (gitignored except .gitkeep)
 scripts/
   delta/         # SLURM scripts for UIUC Delta HPC
@@ -86,6 +87,13 @@ scripts/
 src/n_mars/      # installable Python package
 logs/            # SLURM stdout/stderr (create before submitting)
 ```
+
+### `external/` Convention
+
+- **Purpose:** Store cloned third-party codebases for reference only.
+- **Isolation:** Code under `src/` must NEVER import from `external/`. The two directories are strictly isolated.
+- **Reuse:** If you need to use code from `external/`, copy it into `src/` and adapt it there.
+- **Read-only:** Do not modify files inside `external/` repos.
 
 ## HPC Job Submission
 
@@ -135,6 +143,10 @@ All experiments use **base models** (not instruct variants):
 | Qwen3-4B | `Qwen/Qwen3-4B` |
 
 Use these IDs in the `model` field of training configs and `model_args.pretrained` in eval configs.
+
+## Hard Rules
+
+- **No `__pycache__` folders.** Never create `__pycache__` directories. After running `uv` or any Python command during your workflow, check whether `__pycache__` folders were created and remove them if they exist (`find . -type d -name __pycache__ -exec rm -rf {} +`).
 
 ## Key Libraries
 
