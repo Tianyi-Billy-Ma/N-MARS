@@ -1,9 +1,9 @@
 """Build D_op and D_back datasets for Self-Backtracking on MATH.
 
-Uses meta-math/MetaMathQA for training data (filtered to MATH-related types)
-and evaluates on MATH-500 (HuggingFaceH4/MATH-500).
+Uses mtybilly/MetaMathQA (MATH-50K config) — a curated 50K MATH-only split
+with columns: id, query, response, type, original_question.
 
-D_op: optimal paths — gold CoT from MetaMath MATH subsets.
+D_op: optimal paths — gold CoT from the curated MATH-50K split.
 D_back: backtrack traces — perturbed arithmetic/numeric errors followed by
         <backtrack> and the correct continuation.
 
@@ -25,8 +25,6 @@ from datasets import Dataset, DatasetDict, load_dataset
 # ---------------------------------------------------------------------------
 # MetaMath parsing
 # ---------------------------------------------------------------------------
-
-MATH_TYPES = {"MATH_AnsAug", "MATH_Rephrased", "MATH_FOBAR", "MATH_SV"}
 
 # Final answer pattern: "The answer is: <answer>"
 _FINAL_ANSWER_RE = re.compile(r"The answer is:\s*(.+?)\.?\s*$")
@@ -125,9 +123,7 @@ def perturb_step(step: str, rng: random.Random) -> str | None:
 
     start, end = match.span()
     old_substring = step[start:end]
-    new_substring = old_substring.replace(
-        old_result_with_dollar, new_result_with_dollar, 1
-    )
+    new_substring = old_substring.replace(old_result_with_dollar, new_result_with_dollar, 1)
     return step[:start] + new_substring + step[end:]
 
 
@@ -158,9 +154,7 @@ def build_back_text(
     Randomly selects one step with a numeric result, perturbs it, inserts
     <backtrack>, then continues with the correct step and remainder.
     """
-    numeric_indices = [
-        i for i, s in enumerate(steps) if has_numeric_result(s)
-    ]
+    numeric_indices = [i for i, s in enumerate(steps) if has_numeric_result(s)]
     if not numeric_indices:
         return None
 
@@ -189,25 +183,14 @@ def build_back_text(
 
 
 def build_datasets(
-    error_rate: float, seed: int, max_samples: int = 0,
+    error_rate: float,
+    seed: int,
 ) -> tuple[list[dict], list[dict]]:
-    """Load MetaMath and construct D_op and D_back samples.
-
-    Only uses MATH-related subsets (MATH_AnsAug, MATH_Rephrased,
-    MATH_FOBAR, MATH_SV).
-    """
+    """Load the curated MATH-50K dataset and construct D_op and D_back samples."""
     rng = random.Random(seed)
 
-    ds = load_dataset("meta-math/MetaMathQA", split="train")
-
-    # Filter to MATH types only
-    ds = ds.filter(lambda x: x["type"] in MATH_TYPES)
-    print(f"Filtered to {len(ds)} MATH samples")
-
-    if max_samples > 0 and len(ds) > max_samples:
-        indices = rng.sample(range(len(ds)), max_samples)
-        ds = ds.select(indices)
-        print(f"Subsampled to {len(ds)} samples")
+    ds = load_dataset("mtybilly/MetaMathQA", "MATH-50K", split="train")
+    print(f"Loaded {len(ds)} MATH-50K samples")
 
     op_samples: list[dict] = []
     back_samples: list[dict] = []
@@ -218,20 +201,24 @@ def build_datasets(
         steps, final_answer = parse_metamath_response(response)
 
         op_text = build_op_text(question, response)
-        op_samples.append({
-            "text": op_text,
-            "has_backtrack": False,
-            "split": "op",
-        })
+        op_samples.append(
+            {
+                "text": op_text,
+                "has_backtrack": False,
+                "split": "op",
+            }
+        )
 
         if rng.random() < error_rate:
             back_text = build_back_text(question, steps, response, rng)
             if back_text is not None:
-                back_samples.append({
-                    "text": back_text,
-                    "has_backtrack": True,
-                    "split": "back",
-                })
+                back_samples.append(
+                    {
+                        "text": back_text,
+                        "has_backtrack": True,
+                        "split": "back",
+                    }
+                )
 
     return op_samples, back_samples
 
@@ -253,36 +240,29 @@ def save_datasets(
     dataset_dict = DatasetDict({"op": op_dataset, "back": back_dataset})
     dataset_dict.save_to_disk(str(output_dir / "hf_dataset_split"))
 
-    for name, samples in [
-        ("data", all_samples), ("op", op_samples), ("back", back_samples)
-    ]:
+    for name, samples in [("data", all_samples), ("op", op_samples), ("back", back_samples)]:
         path = output_dir / f"{name}.jsonl"
         with open(path, "w") as f:
             for s in samples:
                 f.write(json.dumps(s) + "\n")
 
-    print(
-        f"Saved {len(op_samples)} D_op + {len(back_samples)} D_back samples"
-    )
+    print(f"Saved {len(op_samples)} D_op + {len(back_samples)} D_back samples")
     print(f"  HuggingFace dataset: {output_dir / 'hf_dataset'}")
     print(f"  JSONL: {output_dir / 'data.jsonl'}")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Build Self-Backtracking datasets from MetaMathQA"
-    )
+    parser = argparse.ArgumentParser(description="Build Self-Backtracking datasets from MetaMathQA")
     parser.add_argument(
-        "--output_dir", type=Path,
+        "--output_dir",
+        type=Path,
         default=Path("data/self_backtracking/math"),
     )
     parser.add_argument(
-        "--error_rate", type=float, default=0.5,
+        "--error_rate",
+        type=float,
+        default=0.5,
         help="Fraction of samples to perturb into D_back (default: 0.5)",
-    )
-    parser.add_argument(
-        "--max_samples", type=int, default=0,
-        help="Max MATH samples to use (0 = all ~155K, default: 0)",
     )
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
@@ -291,15 +271,13 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    print("Building Self-Backtracking datasets from MetaMathQA (MATH)")
+    print("Building Self-Backtracking datasets from mtybilly/MetaMathQA MATH-50K")
     print(f"  error_rate={args.error_rate}, seed={args.seed}")
-    print(f"  max_samples={args.max_samples or 'all'}")
     print(f"  output_dir={args.output_dir}")
 
     op_samples, back_samples = build_datasets(
         error_rate=args.error_rate,
         seed=args.seed,
-        max_samples=args.max_samples,
     )
 
     save_datasets(op_samples, back_samples, args.output_dir)

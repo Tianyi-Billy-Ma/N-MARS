@@ -1,18 +1,34 @@
-"""GSM8K evaluation script for the Self-Backtracking baseline.
+"""Evaluation script for the Self-Backtracking baseline.
+
+Supports GSM8K and MATH-500 benchmarks.
 
 Usage
 -----
-# Full backtracking evaluation
+# GSM8K — full backtracking evaluation
 python -m baselines.self_backtracking.evaluate \
     --model_path outputs/self-backtrack-llama3.2-1b-gsm8k \
     --output_path outputs/self-backtrack-llama3.2-1b-gsm8k/eval_results.json \
+    --task gsm8k \
     --b 1 --n 32 --max_new_tokens 512 --seed 42
 
-# Greedy-only evaluation (control)
+# GSM8K — greedy-only (control)
 python -m baselines.self_backtracking.evaluate \
     --model_path outputs/self-backtrack-llama3.2-1b-gsm8k \
     --output_path outputs/self-backtrack-llama3.2-1b-gsm8k/eval_greedy.json \
-    --greedy_only --seed 42
+    --task gsm8k --greedy_only --seed 42
+
+# MATH-500 — full backtracking evaluation
+python -m baselines.self_backtracking.evaluate \
+    --model_path outputs/self-backtrack-llama3.1-8b-math500 \
+    --output_path outputs/self-backtrack-llama3.1-8b-math500/eval_results.json \
+    --task math500 \
+    --b 1 --n 32 --max_new_tokens 1024 --seed 42
+
+# MATH-500 — greedy-only (control)
+python -m baselines.self_backtracking.evaluate \
+    --model_path outputs/self-backtrack-llama3.1-8b-math500 \
+    --output_path outputs/self-backtrack-llama3.1-8b-math500/eval_greedy.json \
+    --task math500 --greedy_only --seed 42
 """
 
 import argparse
@@ -29,36 +45,88 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from baselines.self_backtracking.decode import SelfBackTrackingDecoder
 
 # ---------------------------------------------------------------------------
-# Answer extraction
+# GSM8K answer extraction
 # ---------------------------------------------------------------------------
 
-_ANSWER_PATTERNS = [
+_GSM8K_ANSWER_PATTERNS = [
     re.compile(r"[Tt]he answer is\s*(\-?[\d,]+)"),
     re.compile(r"####\s*(\-?[\d,]+)"),
 ]
 
 
-def extract_answer(text: str) -> str | None:
+def extract_answer_gsm8k(text: str) -> str | None:
     """Return the first numeric answer found in text, or None."""
-    for pat in _ANSWER_PATTERNS:
+    for pat in _GSM8K_ANSWER_PATTERNS:
         m = pat.search(text)
         if m:
             return m.group(1).replace(",", "").strip()
     return None
 
 
-def normalize_answer(answer: str) -> str:
+def normalize_answer_gsm8k(answer: str) -> str:
     """Strip commas and leading zeros for comparison."""
     return answer.replace(",", "").strip().lstrip("0") or "0"
 
 
-def answers_match(pred: str | None, gold: str) -> bool:
+def answers_match_gsm8k(pred: str | None, gold: str) -> bool:
     if pred is None:
         return False
     try:
-        return float(normalize_answer(pred)) == float(normalize_answer(gold))
+        return float(normalize_answer_gsm8k(pred)) == float(normalize_answer_gsm8k(gold))
     except ValueError:
-        return normalize_answer(pred) == normalize_answer(gold)
+        return normalize_answer_gsm8k(pred) == normalize_answer_gsm8k(gold)
+
+
+# ---------------------------------------------------------------------------
+# MATH-500 answer extraction
+# ---------------------------------------------------------------------------
+
+def extract_boxed(text: str) -> str | None:
+    """Extract the innermost \\boxed{...} content, handling nested braces."""
+    idx = text.rfind("\\boxed{")
+    if idx == -1:
+        return None
+    i = idx + len("\\boxed{")
+    depth = 1
+    while i < len(text) and depth > 0:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+        i += 1
+    return text[idx + len("\\boxed{") : i - 1]
+
+
+_MATH_THE_ANSWER_PATTERN = re.compile(r"[Tt]he answer is[:\s]+(.+?)(?:\.|$)", re.DOTALL)
+
+
+def extract_answer_math(text: str) -> str | None:
+    """Extract answer from MATH-500 model output.
+
+    Tries \\boxed{} first, then 'The answer is: ...' fallback.
+    """
+    boxed = extract_boxed(text)
+    if boxed is not None:
+        return boxed.strip()
+    m = _MATH_THE_ANSWER_PATTERN.search(text)
+    if m:
+        return m.group(1).strip()
+    return None
+
+
+def normalize_math_answer(answer: str) -> str:
+    """Normalize a MATH answer string for string comparison."""
+    s = answer.strip()
+    s = s.replace("\\$", "").replace("$", "")
+    s = re.sub(r"\\text\{([^}]*)\}", r"\1", s)
+    s = s.strip().rstrip(".")
+    return s
+
+
+def answers_match_math(pred: str | None, gold: str) -> bool:
+    if pred is None:
+        return False
+    return normalize_math_answer(pred) == normalize_math_answer(gold)
 
 
 # ---------------------------------------------------------------------------
@@ -172,9 +240,13 @@ def run_evaluation(args: argparse.Namespace) -> None:
             temperature=args.temperature,
         )
 
-    # Load GSM8K test split
-    print("Loading GSM8K test set…")
-    dataset = load_dataset("gsm8k", "main", split="test")
+    # Load dataset based on task
+    if args.task == "math500":
+        print("Loading MATH-500 test set...")
+        dataset = load_dataset("HuggingFaceH4/MATH-500", split="test")
+    else:
+        print("Loading GSM8K test set...")
+        dataset = load_dataset("gsm8k", "main", split="test")
 
     results_per_sample: list[dict] = []
     correct = 0
@@ -184,10 +256,14 @@ def run_evaluation(args: argparse.Namespace) -> None:
     wall_start = time.time()
 
     for idx, sample in enumerate(tqdm(dataset, desc="Evaluating")):
-        question = sample["question"]
-        gold_raw = sample["answer"]
-        # GSM8K gold answers end with "#### <number>"
-        gold_answer = extract_answer(gold_raw) or gold_raw.strip()
+        if args.task == "math500":
+            question = sample["problem"]
+            gold_answer = normalize_math_answer(sample["answer"])
+        else:
+            question = sample["question"]
+            gold_raw = sample["answer"]
+            # GSM8K gold answers end with "#### <number>"
+            gold_answer = extract_answer_gsm8k(gold_raw) or gold_raw.strip()
 
         prompt = format_prompt(question)
 
@@ -196,8 +272,12 @@ def run_evaluation(args: argparse.Namespace) -> None:
         else:
             result = decoder.generate(prompt)
 
-        pred_answer = extract_answer(result["text"])
-        is_correct = answers_match(pred_answer, gold_answer)
+        if args.task == "math500":
+            pred_answer = extract_answer_math(result["text"])
+            is_correct = answers_match_math(pred_answer, gold_answer)
+        else:
+            pred_answer = extract_answer_gsm8k(result["text"])
+            is_correct = answers_match_gsm8k(pred_answer, gold_answer)
 
         if is_correct:
             correct += 1
@@ -230,6 +310,7 @@ def run_evaluation(args: argparse.Namespace) -> None:
         "total_wall_clock_seconds": wall_elapsed,
         "mode": "greedy" if args.greedy_only else "self_backtracking",
         "config": {
+            "task": args.task,
             "model_path": args.model_path,
             "b": args.b if not args.greedy_only else None,
             "n": args.n if not args.greedy_only else None,
@@ -250,6 +331,7 @@ def run_evaluation(args: argparse.Namespace) -> None:
         json.dump(output, fh, indent=2)
 
     print("\n=== Results ===")
+    print(f"Task:                  {args.task}")
     print(f"Accuracy:              {metrics['accuracy']:.4f}  ({correct}/{n_samples})")
     print(f"Avg tokens generated:  {metrics['avg_tokens_generated']:.1f}")
     print(f"Avg backtracks/sample: {metrics['avg_backtracks_per_sample']:.2f}")
@@ -263,7 +345,7 @@ def run_evaluation(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Evaluate Self-Backtracking decoder on GSM8K"
+        description="Evaluate Self-Backtracking decoder on GSM8K or MATH-500"
     )
     parser.add_argument(
         "--model_path",
@@ -276,6 +358,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         required=True,
         help="Path to write JSON results file",
+    )
+    parser.add_argument(
+        "--task",
+        type=str,
+        choices=["gsm8k", "math500"],
+        default="gsm8k",
+        help="Evaluation benchmark: 'gsm8k' or 'math500' (default: gsm8k)",
     )
     # Backtracking hyperparameters
     parser.add_argument(
