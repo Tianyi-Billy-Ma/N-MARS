@@ -116,23 +116,56 @@ Experiments required to address reviewer concerns. Organized by priority (critic
 
 ---
 
-## EXP-5: Natural Language Self-Correction Baseline (Data-Matched)
+## EXP-5: Self-Reflect Baseline (Data-Matched NL Correction)
 
 **Addresses:** DLhi-W1/Q1, DLhi-W3/Q3
 
 **Why:** Reviewer asks whether the explicit `<UNDO>` token is necessary, or if natural-language revision markers (e.g., "Wait, that was incorrect, let me revise") would achieve the same effect.
 
-**What to run:**
-- Take the same augmented traces used for N-MARS training
-- Replace `<UNDO>` tokens with natural language markers:
-  - e.g., error tokens + "Wait, that is wrong. Let me reconsider." + correction tokens
-- Train with standard SFT (no masking needed since error tokens are now "natural")
-- Also train with mSFT (mask the error tokens, same as N-MARS)
-- Evaluate on GSM8K
+**Method name:** Self-Reflect
+
+### Design Rationale
+
+A key distinction between `<UNDO>` and natural language correction is **post-processing determinism**:
+
+- **N-MARS (`<UNDO>`):** Each `<UNDO>` token erases exactly one preceding token. Given a raw generation like `x, x, e, e, <UNDO>, <UNDO>, x, x`, the stack-based post-processing deterministically produces `x, x, x, x`. The mapping from raw trajectory to clean output is unambiguous.
+- **NL correction (Self-Reflect):** The model generates `x, x, e, e, "Wait, that is wrong.", x, x`. There is no deterministic rule for which prior tokens to remove — the NL marker signals that an error occurred, but does not specify the error's location or span. This makes clean post-processing infeasible.
+
+Both approaches keep error tokens in the KV cache during generation (the model attends to errors in both cases). The difference is not about what the model sees, but about whether the final output can be cleanly recovered. With `<UNDO>`, the output is guaranteed clean. With NL markers, the output contains both the error and the correction, and we must rely on answer extraction (e.g., "The answer is: X") to get the final result.
+
+This mirrors o1/R1-style reasoning where the "thinking trace" is messy but only the final answer matters. The question is whether this is sufficient compared to explicit erasure.
+
+### What to run
+
+- Take the same augmented traces used for N-MARS training (`mtybilly/GSM8K-Random-All`)
+- Replace `<|BACKTRACK|>` tokens with a natural language marker: `"Wait, that is incorrect. Let me reconsider."`
+- Train with **standard SFT** (no masking — all tokens supervised, including errors)
+- At inference, generate the full sequence (errors + NL marker + correction included) and extract the final answer via regex ("The answer is: X")
+- No post-processing to remove errors — the output is kept as-is
+
+**Example training sequence:**
+```
+Question: John has 3 apples and buys 5 more. He gives 2 away. How many?
+Answer:
+John starts with 3 apples.
+He buys 5 more, so 3 + 5 = 9. Wait, that is incorrect. Let me reconsider.
+He buys 5 more, so 3 + 5 = 8.
+He gives 2 away, so 8 - 2 = 6.
+The answer is: 6
+```
 
 **Models:** Llama-3.2-1B
 
-**Estimated compute:** ~2h per variant (2 variants = ~4h total).
+**Estimated compute:** ~2h on a single A40.
+
+### Literature Context
+
+- **Contextual Drag** (arXiv:2602.04288): Wrong tokens remaining in context cause 10-20% performance drops due to persistent attention biases.
+- **LLMs Cannot Self-Correct Reasoning Yet** (arXiv:2310.01798): Without external feedback, NL self-correction fails or degrades performance.
+- **LLMs Cannot Find But Can Correct** (arXiv:2311.08516): Models detect errors at only ~53% accuracy, but correct effectively when given explicit error locations.
+- **DeepSeek-R1** (arXiv:2501.12948): NL reflection ("wait", "mistake") emerges from GRPO training, but wrong tokens remain in `<think>` blocks.
+
+These findings suggest that while NL correction can work for final-answer extraction, the lack of explicit erasure leaves error tokens as attention biases, potentially degrading intermediate reasoning quality.
 
 ---
 
