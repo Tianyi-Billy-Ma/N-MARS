@@ -12,6 +12,7 @@ dependencies = [
     "pyyaml",
     "torch",
     "accelerate",
+    "flash-attn",
 ]
 
 [build-system]
@@ -35,6 +36,9 @@ explicit = true
 
 [tool.uv.sources]
 torch = { index = "pytorch-cu128" }
+
+[tool.uv.pip]
+no-build-isolation-package = ["flash-attn"]
 
 [tool.ruff]
 line-length = 100
