@@ -1,0 +1,32 @@
+\section{Related Work}
+
+Autoregressive models, exemplified by large language models, generate sequences token-by-token in a monotonic manner, i.e., once a token is emitted, later tokens must condition on it, and the model cannot revise earlier decisions~\cite {bachmann2024pitfalls, thoppilan2022lamda}.
+A fundamental limitation of this paradigm is error propagation~\cite{zhang2023snowball, gan2025rethinking}, where a mistake made early in generation can propagate and amplify over the remainder of the sequence, since there is no mechanism for erasing flawed intermediate content.
+
+\subsection{Post-hoc Verification and Iterative Refinement}
+A common direction to tackle the error propagation issue is post-hoc self-critique and revision~\cite{shinn2023reflexion, welleck2022generating, gou2023critic, wang2022self}. These methods typically follow an iterative loop, i.e., generate an initial draft, produce feedback through the same model or an auxiliary model, and then regenerate a revised answer conditioned on the critique.
+For instance, Self-Refine~\cite{madaan2023selfrefine} demonstrates that models can improve responses via multiple rounds of self-generated feedback, without task-specific fine-tuning or additional supervision: the same pretrained model alternates between drafting, critiquing, and revising. 
+Reflexion~\cite{shinn2023reflexion} extends this idea to agentic settings by maintaining an explicit memory of past failures. 
+The agent reflects on these errors and uses them as "lessons" to guide future attempts.
+More recently, intrinsic self-verification aims to endow the model with an internal judgment of whether its partial reasoning or output is trustworthy, reducing reliance on external critics. 
+ReVISE~\cite{lee2025revise} trains a model to decide whether a reasoning trajectory is sound or should be revised. 
+While effective, post-hoc refinement and self-verification pipelines typically introduce additional inference overhead because they require at least one extra generation pass to critique and revise.
+
+\subsection{Self-Refine via Backtrack Generation}
+The most relevant line of work to our proposed method is self-refinement via backtrack generation, which allows the model to interleave generation with on-the-fly self-assessment and revision within a single decoding pass.
+These works mainly focus on safety violations in autoregressive sequence models.
+For example, \citet{zhang2025backtracking} proposes a backtracking-enabled decoding mechanism for safer generation by introducing a special \texttt{[RESET]} token and fine-tuning the model to emit it when the output drifts toward unsafe content. 
+\citet{selreinforcement} extends this idea by introducing category tokens \texttt{[CATEGORY]} that flag the type of safety violation, enabling targeted revisions.
+\citet{wu2025generate} introduces REVERSE for vision-language generation, training a model to interleave generation with self-refinement by inserting special tokens, i.e., \texttt{<UN>} and \texttt{<CN>}, that trigger verification and correction behaviors. 
+Unlike prior backtracking methods that focus primarily on safety violations~\cite{zhang2025backtracking,selreinforcement} or vision-language tasks~\cite{wu2025generate}, \modelname targets complex reasoning domains where error propagation is particularly detrimental. 
+Moreover, N-MARS employs a fine-grained non-monotonic generation strategy that allows the model to revise arbitrary segments of the generated sequence, rather than only from fixed positions, i.e., end of sentences or end of generation.
+This flexibility is crucial for reasoning tasks, where errors can occur at any step, and earlier mistakes may require revisiting multiple subsequent tokens.
+
+
+
+% Beyond post-hoc revision, another line of work seeks to mitigate error accumulation by making generation itself non-monotonic—allowing the model to retract or overwrite earlier content during decoding. If the model can detect a failure mode mid-generation and backtrack immediately, it can correct errors before they contaminate the remainder of the sequence.
+
+
+
+
+

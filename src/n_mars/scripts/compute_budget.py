@@ -77,10 +77,12 @@ def analyze_run(results_dir: Path, model_params: float | None = None) -> dict:
         stats["est_flops"] = 2 * model_params * stats["total_tokens"]
         stats["est_flops_per_sample"] = 2 * model_params * stats["avg_tokens"]
 
-    # Try to load results.json for accuracy
+    # Try to load results.json for wall-clock time and accuracy
     for f in results_dir.rglob("results.json"):
         with open(f) as fh:
             results = json.loads(fh.read())
+        if "total_evaluation_time_seconds" in results:
+            stats["wall_clock_s"] = results["total_evaluation_time_seconds"]
         if "results" in results:
             for task_name, task_results in results["results"].items():
                 for metric, value in task_results.items():
@@ -119,7 +121,11 @@ def print_report(all_stats: list[dict]) -> None:
     print("COMPUTE BUDGET ANALYSIS")
     print("=" * 100)
 
+    has_time = any("wall_clock_s" in s for s in all_stats)
+
     header = f"{'Run':<40} {'Samples':>8} {'Avg Tok':>8} {'Med Tok':>8} {'Max Tok':>8} {'Total Tok':>10}"
+    if has_time:
+        header += f" {'Wall-clock':>12}"
     if has_flops:
         header += f" {'Est FLOPs':>14}"
     for key in accuracy_keys:
@@ -136,6 +142,13 @@ def print_report(all_stats: list[dict]) -> None:
             f"{stats['max_tokens']:>8} "
             f"{stats['total_tokens']:>10}"
         )
+        if has_time:
+            secs = stats.get("wall_clock_s")
+            if secs is not None:
+                mins, sec = divmod(int(secs), 60)
+                row += f" {mins:>5}m{sec:02d}s"
+            else:
+                row += f" {'N/A':>12}"
         if has_flops:
             row += f" {format_flops(stats['est_flops']):>14}"
         for key in accuracy_keys:

@@ -200,6 +200,10 @@ uv.lock
 
 # OMC state
 .omc/
+.omx/
+
+# macOS
+.DS_Store
 
 # PyPI configuration file
 .pypirc

@@ -1,0 +1,32 @@
+\section{Introduction}
+Autoregressive models, such as large language models (LLMs) \cite{ye2025llms4all}, have demonstrated  excellent capabilities to perform various downstream tasks, from question-answering~\cite{kamalloo2023evaluating,song2025learning,qian2025enhancingllm}, code generation~\cite{chen2021evaluating,ma2025autodata}, to complex summarizations~\cite{zhang2024benchmarking, tang2023evaluating,li2025verification,qian2025enhancing,ma2025llm}.
+Fundamentally trained on the next-token prediction objective, these models 
+may fail in complex generation tasks, due to their inherent monotonic generation process, where a new token is always appended to the immutable sequence~\cite{bachmann2024pitfalls, thoppilan2022lamda}.
+While this monotonic generation has become a fundamental paradigm, it is susceptible to error propagation, where a single incorrect token corrupts subsequent generations, leading to cascading failures that the model cannot recover from~\cite{zhang2023snowball, gan2025rethinking, berglund2023reversal, zhu2024towards}.
+
+To address these limitations, recent research has explored methods to induce refinement capabilities~\cite{lin2023swiftsage} in LLMs, such as prompting strategies~\cite{wei2022chain, zhou2022large}, search-based methods~\cite{yao2023tree, besta2024graph}, and post-hoc verifications~\cite{madaan2023selfrefine, lightman2023let, wang2022self}.
+While effective, these approaches operate outside the generation process, relying on expensive external verifiers or multiple inference passes, making them computationally inefficient. 
+For example, several studies~\cite{luo2024improve, lightman2023let} leverage a large-scale judger to validate output and trigger regeneration.
+Moreover, even with reinforcement learning~\cite{huang2023large, kamalloo2023evaluating, kamoi2024can} for extended self-correction capabilities, these approaches offer no intrinsic signal of model confidence during generation, making it difficult to assess whether the model is on track or prone to deviating toward incorrect conclusions. 
+
+This naturally raises a research question: \textit{Can we design an autoregressive sequence model that internally detects and corrects its errors during generation?}
+
+To this end, we propose \modelname, a novel \textbf{N}on-\textbf{M}onotonic \textbf{A}uto\textbf{R}egressive \textbf{S}equence model, that internalizes the iterative refinement process directly into the autoregressive generation loop. 
+Instead of relying on external mechanisms or post-hoc critique, we train the model with an erase action, which serves as a token \bk in generation, allowing the model to refine the previous generated token on the fly. 
+This effectively gives the model ability to explore reasoning paths, detect potential errors, and correct them within a single generation pass.
+To train the autoregressive sequence model in a non-monotonic manner, we first design a sequence augmentation method that inserts the true error tokens into the sequences, followed by \bk tokens and correct references that teach models to detect and correct errors through \bk tokens. 
+With the error augmented sequences, directly training with fundamental supervised fine-tuning (SFT) may introduce negative learning~\cite{kumar2024training}, where the model learn to generate error tokens.
+To this end, we design a masked SFT (mSFT) that masks out errors in the augmented sequences, enabling autoregressive sequence models to recognize and correct errors efficiently without introducing new errors.
+Afterward, we continue training the model via group relative policy optimization (GRPO)~\cite{shao2024deepseekmath} with a multi-objective reward function to incentivize the model to correct revisions while penalizing stuttering, i.e., unnecessary or incorrect erase behaviors.
+In this way, the trained model is capable of pruning and adjusting its generation trajectories to self-correct their outputs in a non-monotonic manner effectively and efficiently. 
+We demonstrate the effectiveness of \modelname through various benchmark datasets that require complex reasoning capabilities against autoregressive baselines.
+Moreover, we conduct comprehensive ablation studies to explore the design space of non-monotonic autoregressive sequence models, providing insights into key components such as the erase action design, sequence augmentation strategies, and training objectives.
+Our contributions are summarized as follows: 
+\begin{itemize}[noitemsep, topsep=-1pt, leftmargin=*] 
+    \item \textbf{Non-Monotonic Autoregressive Approach.} We propose a novel sequence modeling paradigm that enables models to dynamically prune and adjust their generation trajectories on the fly to self-correct errors during inference.
+    \item \textbf{Masked Supervised-Finetuning.} 
+    We introduce mSFT, which provides training signals for error identification, self-correction, and further error generation prevention. 
+    Moreover, we provide a theoretical analysis to demonstrate its effectiveness in mitigating error propagation.
+    \item \textbf{Design Space Exploration.} We conduct a comprehensive design space exploration, offering actionable insights about non-monotonic autoregressive sequence models.
+    \item \textbf{State-of-the-Art Performance.} We demonstrate that \modelname achieves significant improvements over baseline methods on complex reasoning benchmarks, demonstrating the effectiveness of our proposed method. 
+\end{itemize}

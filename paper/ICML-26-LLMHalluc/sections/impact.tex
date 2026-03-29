@@ -1,0 +1,29 @@
+\section*{Impact Statement}
+
+This work introduces \modelname, a non-monotonic autoregressive framework that enables sequence models to self-correct errors during generation. We discuss the broader implications of this research below.
+
+\textbf{Potential Benefits.}
+The ability to detect and correct errors on-the-fly addresses a fundamental limitation of current autoregressive models, i.e., error propagation. 
+By enabling models to revise their outputs within a single generation pass, \modelname reduces the computational overhead associated with external verification systems, post-hoc correction pipelines, and multi-pass generation strategies.
+This efficiency gain is particularly valuable for resource-constrained deployment scenarios and real-time applications where latency is critical.
+Furthermore, the self-correction mechanism may improve the reliability of model-generated content in high-stakes domains such as medical information retrieval, legal document drafting, and educational content generation, where factual accuracy is paramount.
+More broadly, the non-monotonic generation paradigm opens new avenues for research into more interactive and adaptive sequence models that can iteratively refine their outputs based on internal feedback, potentially leading to more robust and trustworthy AI systems.
+
+\textbf{Risk and Misuse Considerations.}
+As with many advances in sequence models, improved self-correction capabilities may lower barriers to generating coherent and persuasive text.
+In adversarial settings, such capabilities could be misused to produce more convincing misinformation or to refine deceptive content that evades detection.
+While \modelname itself does not introduce new knowledge sources or factual grounding mechanisms beyond existing autoregressive frameworks, its improved error recovery could amplify the fluency and apparent reliability of downstream applications.
+We therefore emphasize that responsible deployment should follow existing best practices in content moderation, fact-checking integration, and output verification, and that access to models with enhanced self-correction capabilities should be carefully managed in sensitive domains.
+
+\textbf{Limitations and Scope.}
+Our approach has several limitations that bound its current applicability.
+First, in this work, we employ LLMs as autoregressive sequence models since they are current state-of-the-art, and the effectiveness of \modelname may vary with different model architectures or training paradigms.
+Second, the current framework operates at the token level; extending to higher-level semantic units, i.e., phrases, sentences, or reasoning steps, is an open challenge.
+Finally, the computational overhead of the non-monotonic autoregressive model, while lower than external verification methods, still introduces additional generation steps that may accumulate in complex reasoning chains.
+
+\textbf{Future Directions.}
+This work opens several avenues for future research.
+Current work focuses on post-training to introduce self-correction; integrating non-monotonic generation capabilities during initial model pretraining could yield more robust correction behaviors.
+Exploring hierarchical backtracking mechanisms—where models can revise at multiple granularities, i.e., token, phrase, paragraph, may further improve correction efficiency.
+The masked SFT framework could be extended to other learning-from-demonstration settings where training data contains systematic errors.
+Finally, investigating the interplay between self-correction and reasoning chain coherence in long-horizon tasks presents an important direction for deploying \modelname in complex, multi-step problem-solving scenarios.

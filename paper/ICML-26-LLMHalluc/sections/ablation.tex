@@ -1,0 +1,54 @@
+
+\section{Design Spaces and Insights}
+We conduct a comprehensive ablation study to provide more insights about our framework design, including token initialization, supervised training, reward function design, reinforcement learning training, sequence augmentation, and positional encoding.
+The result is listed in Table~\ref{tab: ablation}.
+
+\subsection{Training Recipe} \label{sec: ablation training recipe}
+
+\textbf{Token Initialization.}
+We explore three token initialization methods for \bk token, i.e., centroid (Cent.), context-based (Ctx.), and semantic anchor (Sem.) initializations. 
+The detailed discussions about these methods are provided in Appendix~\ref{app: token initialization}.
+According to Table~\ref{subtab: initialization}, both context and semantic-based strategies outperform the naive centroid method, with semantic initialization achieving the highest accuracy on both \textsc{Gsm8k} and \textsc{Math} datasets.
+Notably, the performance gap between informed initialization methods, i.e., context and semantic, and the centroid method is more substantial on the challenging MATH benchmark, indicating that \textbf{semantically meaningful token embeddings provide greater benefits for complex reasoning tasks.}
+
+\textbf{Supervised Fine-Tuning.} 
+We compare mSFT against standard SFT using the augmented dataset $\gD_\text{aug}$. 
+As shown in Table~\ref{subtab: sft}, standard SFT exhibits negative learning, evidenced by a performance decline compared to baseline (Few-Shot).
+This degradation likely stems from error tokens within $\gD_\text{aug}$ leading the trained models to imitate error tokens and generate erroneous outputs. 
+Conversely, mSFT mitigates this by masking error tokens, thereby yielding a performance gain.
+
+\input{tables/main}
+
+\textbf{Reward Function.} 
+We examine reward function designs in Table~\ref{subtab: reward}. 
+Both components contribute distinctly, i.e., $\mathcal{R}_\text{inc}$ provides a 10\% gain on \textsc{Gsm8k}, whereas $\mathcal{R}_\text{pen}$ yields a 12\% gain on \textsc{Math}. 
+This suggests that \textbf{simpler tasks (\textsc{Gsm8k}) benefit primarily from outcome-based rewards}, where correct erasing naturally emerges from accuracy signals. 
+Conversely, \textbf{complex reasoning tasks require explicit regularization of erase behavior to prevent degenerate strategies}, i.e., either over-reliance or under-utilization of the undo mechanism.
+
+Besides our proposed reward functions, we also test the designs in BSAFE+~\cite{selreinforcement}, SCoRe~\cite{kumar2024training}, and MGRPO~\cite{ding2025multi}. 
+Implementation details are provided in Appendix~\ref{app: additional reward}.
+We find that our designed reward function performs better than those in SCoRe and MGRPO. 
+Although BSAFE+ achieves comparable performance with our proposed method, it employs an external LLM as a critic to compute the reward, which introduces computational overhead. 
+Therefore, our proposed method remains a better design in terms of performance and computational costs.
+
+
+
+\textbf{GRPO.} 
+We assess the efficacy of GRPO over base and fine-tuned models in Table~\ref{subtab: grpo}.
+Note that, the SFT result is the GRPO training based on the model after SFT over $\gD_\text{aug}$.
+GRPO consistently enhances performance across different settings, even for the SFT model that has shown negative learning in Table~\ref{subtab: sft}.
+This indicates that \textbf{GRPO effectively contributes to \modelname's generate steps, leading to improved reasoning capabilities.}
+
+\subsection{Augmentation}
+
+\textbf{Sequence Augmentation.}
+We examine the proposed sequence augmentation method in Section~\ref{sec: sequence augmentation}, with two additional sequence augmentation approaches for erase, i.e., stochastic error injection (Rand.) and hard sample sequence augmentation (Hard).  
+Appendix~\ref{app: sequence augmentation} provides the details of these two augmentation methods.
+Table~\ref{subtab: augmentation} demonstrates that our proposed method outperforms both alternatives, indicating that \textbf{targeted error injection focusing on critical reasoning steps is more effective than random or hard sample-based augmentations for training robust non-monotonic models.}
+
+\textbf{Positional Encoding.}
+As discussed in \citet{cundy2023sequencematch}, altering the positional encoding may also bring potential performance gains.
+The intuition is that correction tokens should inherit the position indices of the error tokens they replace, such that the final semantic sequence appears positionally contiguous.
+We investigate this approach in Table~\ref{subtab: position}, and we find that positional encodings consistently degrade performance.
+We attribute this to RoPE~\citep{su2024roformer}, which rewinds position indices, introducing non-monotonic discontinuities that conflict with pretrained attention patterns.
+Moreover, \textbf{standard monotonic positions already preserve the full context of the error-correction process}, allowing the model to learn correction semantics directly from the \bk token and its surrounding context rather than relying on positional cues.

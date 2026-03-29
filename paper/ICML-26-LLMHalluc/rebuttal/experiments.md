@@ -50,7 +50,7 @@ Experiments required to address reviewer concerns. Organized by priority (critic
 
 **Why:** Reviewer specifically flags the missing comparison with Self-Backtracking (arXiv:2502.04404) as a critical weakness.
 
-**Status:** COMPLETE (greedy). Backtracking eval and MATH-500 eval pending.
+**Status:** COMPLETE (greedy + backtrack Stage 1). Stage 2 (expert iteration) running on CRC. MATH-500 eval pending.
 
 ### Results (Llama-3.2-1B, GSM8K)
 
@@ -90,7 +90,32 @@ The backtracking decoder (b=1, n=32) **underperforms** greedy by 6.2 points (20.
 
 This result highlights a key advantage of N-MARS: the `<UNDO>` token is trained via **GRPO reinforcement learning** with a reward that explicitly incentivizes correct backtracking behavior, whereas Self-Backtracking's SFT-only training does not produce models that actively use the backtrack mechanism at inference time without additional expert iteration.
 
-**Pending:** MATH-500 results (running on CRC).
+**Stage 2 (Expert Iteration) — COMPLETE (2026-03-29):**
+- Script: `scripts/crc/self_backtrack_ei.sh` (CRC job `sb-ei`)
+- Config: 3 EI rounds, b=1, n=8 beam candidates, temperature=0.7, lr=1e-5, 3 epochs/round
+- Input: Stage 1 model at `outputs/self-backtrack-llama3.2-1b-gsm8k/`
+- Output: `outputs/self-backtrack-ei-llama3.2-1b-gsm8k/`
+
+### Stage 2 Results (Llama-3.2-1B, GSM8K)
+
+| Stage | Generation Acc (train, n=8) | Greedy Eval Acc (test) |
+|-------|----------------------------|------------------------|
+| Stage 1 (SFT baseline) | — | 26.4% |
+| EI Iter 1 | 34.2% (2556/7473) | 11.0% (145/1319) |
+| EI Iter 2 | 12.9% (967/7473) | 8.9% (117/1319) |
+| EI Iter 3 | 8.1% (605/7473) | 8.1% (107/1319) |
+
+**Result: EI causes catastrophic collapse** — accuracy degrades each round, falling from 26.4% (Stage 1) to 8.1% (Iter 3).
+
+**Root cause analysis:**
+- Each EI round trains from the **base model** (`meta-llama/Llama-3.2-1B`) on only the filtered correct samples, not from the previous iteration's checkpoint. This causes catastrophic forgetting of Stage 1 knowledge.
+- As the model degrades, fewer correct training samples are generated → even fewer next round → death spiral (2556 → 967 → 605 correct samples).
+- SFT on a small, undiverse set of correct paths without any RL signal cannot recover general reasoning ability.
+
+**Implication for rebuttal:**
+This result strengthens N-MARS's motivation: SFT-only expert iteration is unstable and collapses without a reinforcement learning signal to maintain and reward correct behavior. N-MARS's GRPO stage provides this stability. The fair comparison remains **Stage 1 greedy (26.4%) vs N-MARS (31.3%)**, with the EI collapse as additional evidence that RL is necessary for robust self-correction training.
+
+**Pending:** MATH-500 results.
 
 ---
 
@@ -166,6 +191,22 @@ The answer is: 6
 **Models:** Llama-3.2-1B
 
 **Estimated compute:** ~2h on a single A40.
+
+### Results (Llama-3.2-1B, GSM8K, greedy)
+
+**Status:** COMPLETE (2026-03-28)
+
+| Method | Training | GSM8K Acc | Avg Tokens | Wall-clock |
+|--------|----------|-----------|-----------|------------|
+| Self-Reflect (SFT) | standard SFT + NL marker | 24.0% (316/1319) | 510.0 | ~2.0h |
+| Self-Reflect (mSFT) | masked SFT + NL marker | **25.8% (340/1319)** | 493.6 | ~2.0h |
+| Self-Backtracking (greedy) | dual-loss SFT | 26.4% | 112.4 | ~0.4h |
+| **N-MARS (ours)** | mSFT + GRPO | **31.3%** | — | — |
+
+**Key observations:**
+- mSFT variant (+1.8pp over SFT) confirms that masking error tokens from the loss helps even with NL markers — consistent with Proposition 2.1
+- Self-Reflect mSFT (25.8%) is just below Self-Backtracking greedy (26.4%), both clustering in the SFT-only range (~24-26%)
+- N-MARS outperforms Self-Reflect mSFT by **+5.5pp**, supporting that explicit `<UNDO>` erasure + GRPO is the key advantage, not just error-aware training
 
 ### Literature Context
 

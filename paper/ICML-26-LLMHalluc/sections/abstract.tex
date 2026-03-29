@@ -1,0 +1,8 @@
+Autoregressive models generate sequences monotonically, where any sampled token, even if erroneous or sub-optimal, becomes a permanent condition for all subsequent steps.
+This structural limitation means that autoregressive models cannot revisit or revise earlier decisions, i.e., a capability essential for complex generation tasks where exploration and correction are necessary.
+To this end, we propose \textbf{\modelname}, a \textbf{N}on-\textbf{M}onotonic \textbf{A}utoreg\textbf{R}essive \textbf{S}equence modeling framework that enables models to generate, evaluate, and revise tokens within a single forward pass, effectively allowing exploration before commitment.
+We operationalize this framework through a learned erase token \bk that retracts the previous token, enabling on-the-fly revision within standard autoregressive decoding.
+To train the model, we introduce a sequence augmentation method that constructs error-correction trajectories from model-generated deviations paired with ground-truth references.
+We then propose masked supervised fine-tuning (mSFT) that exposes the model to errors as context for learning when to revise, without optimizing their likelihood.
+Finally, we refine the model with group relative policy optimization (GRPO) that incentivizes judicious \bk usage, i.e., rewarding effective corrections while penalizing unsuccessful ones. 
+We conduct comprehensive theoretical and empirical analysis to validate the effectiveness of \modelname, demonstrating a robust foundation for non-monotonic sequence modeling.

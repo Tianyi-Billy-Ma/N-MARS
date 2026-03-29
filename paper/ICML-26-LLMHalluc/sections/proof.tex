@@ -1,0 +1,165 @@
+\section{Proofs}\label{app: proofs}
+
+In this section, we provide detailed proofs for Proposition~\ref{theorem: masked sft} (mSFT Improves Self-Correction Learning) presented in the main paper. 
+We first restate the proposition and assumptions for completeness, then prove each part.
+
+\subsection{Setup and Notation}
+
+Let $(\rvx, \rvy^*) \sim \gD_\text{aug}$ be an augmented trace where $\rvy^* = (\rvp, \rve, \rvb, \rvc)$ consists of a matched prefix $\rvp$, an error span $\rve =(e_1, \ldots, e_k) $, erase tokens $\rvb =  (\bk, \ldots, \bk)$, with size $|\rvb| = k$, and correction tokens $\rvc$.
+We use $\eta > 0$ to denote the learning rate, and let $p_\theta(\cdot \mid \rvx)$ be the model's conditional distribution parameterized by $\theta$.
+
+The mask $M$ is defined as $M_t = 0$ for positions $t \in \rve$ (error tokens) and $M_t = 1$ otherwise. The training objectives are:
+\begin{align}
+    \gL_\text{SFT}(\theta) &= -\E_{(\rvx, \rvy^*) \sim \gD_\text{aug}}\left[\sum_{t=1}^T \log p_\theta(y_t^* \mid y_{<t}^*, \rvx)\right], \\
+    \gL_\text{mSFT}(\theta) &= -\E_{(\rvx, \rvy^*) \sim \gD_\text{aug}}\left[\sum_{t=1}^T M_t \cdot \log p_\theta(y_t^* \mid y_{<t}^*, \rvx)\right].
+\end{align}
+
+% \begin{assumption}[Regularity Conditions]\label{assm:regularity_app}
+% We assume: (i) the model class is sufficiently expressive to fit the target distributions on unmasked positions; and (ii) training reaches an approximate stationary point of the respective population objectives.
+% \end{assumption}
+
+\begin{assumption}[Smoothness]\label{assm:smoothness}
+Along the optimization trajectory $\{\theta_t\}_{t=0}^T$, the loss functions $\gL_{\bk}(\theta) \coloneqq -\log p_\theta(\bk | \rvx, \rvp, \rve)$, correction loss $\gL_\rvc(\theta)$, and error-score $s_\theta \coloneqq \log p_\theta(\rve | \rvx, \rvp)$ are $L$-smooth, i.e., $\|\nabla_\theta f(\theta_1) - \nabla_\theta f(\theta_2)\| \leq L\|\theta_1 - \theta_2\|$ for all iterates $\theta_1, \theta_2$ on the trajectory.
+\end{assumption}
+
+\begin{assumption}[Gradient Non-Alignment]\label{assm:gradient_conflict}
+As discussed in~\citet{yu2020gradient}, we assume the gradients are non-positively aligned in expectation. Specifically, let $g_{\bk} = \nabla_\theta \gL_{\bk}(\theta)$, $g_\rvc = \nabla_\theta \gL_\rvc(\theta)$, and $g_e = \nabla_\theta \gL_e(\theta)$ denote the true population gradients.
+We assume:
+\begin{enumerate}[label=(\alph*), noitemsep, topsep=2pt]
+    \item \textbf{\bk-Error Non-Alignment:} There exists $\alpha_{\bk} \geq 0$ such that
+    \begin{equation}
+        \E\left[-\langle g_{\bk}, g_e \rangle\right] \geq \alpha_{\bk} \cdot \E\left[\|g_e\|^2\right].
+    \end{equation}
+    \item \textbf{Correction-Error Non-Alignment:} There exists $\alpha_\rvc \geq 0$ such that
+    \begin{equation}
+        \E\left[-\langle g_\rvc, g_e \rangle\right] \geq \alpha_\rvc \cdot \E\left[\|g_e\|^2\right].
+    \end{equation}
+\end{enumerate}
+When $\alpha > 0$, the gradients are in conflict; when $\alpha = 0$, they are orthogonal or non-negatively aligned on average.
+\end{assumption}
+
+
+\begin{assumption}[Bounded Gradient Ratios]\label{assm:bounded_gradients}
+There exists a constant $C \geq 1$ such that for $g_m = g_{\bk} + g_\rvc$:
+\begin{equation}
+    \E\left[\|g_m\|^2 + \|g_m + g_e\|^2\right] \leq C \cdot \E\left[\|g_e\|^2\right].
+\end{equation}
+This holds when error gradients are not negligible relative to the other gradient components.
+\end{assumption}
+
+\textbf{Remark.} Assumption~\ref{assm:bounded_gradients} is satisfied by construction in our framework: the augmented dataset $\gD_\text{aug}$ is designed such that every training sequence contains error tokens followed by correction tokens (see Section~\ref{sec: sequence augmentation}). This guarantees that $g_e \neq 0$ for all training samples, ensuring the error gradient norm $\E[\|g_e\|^2]$ remains non-negligible throughout training. Consequently, the bounded ratio condition holds with a finite constant $C$ that depends on the relative magnitudes of the $\bk$, correction, and error token gradients within each augmented trace.
+
+\begin{lemma}[Descent Lemma~\citep{nesterov2013introductory}]\label{lemma:second_order_remainder}
+Let $f: \mathbb{R}^d \to \mathbb{R}$ be an $L$-smooth function, i.e., $\|\nabla f(\theta_1) - \nabla f(\theta_2)\| \leq L\|\theta_1 - \theta_2\|$ for all $\theta_1, \theta_2$. Then for any $\theta$ and displacement $u \in \mathbb{R}^d$:
+\begin{equation}
+    \left| f(\theta + u) - f(\theta) - \langle \nabla f(\theta), u \rangle \right| \leq \frac{L}{2}\|u\|^2.
+\end{equation}
+Equivalently, there exists a remainder $r$ with $|r| \leq \frac{L}{2}\|u\|^2$ such that $f(\theta + u) = f(\theta) + \langle \nabla f(\theta), u \rangle + r$.
+\end{lemma}
+
+
+\subsection{Proof of Proposition~\ref{theorem: masked sft} Part (a)}
+
+\begin{proposition}[Error Detection, restated]
+Let $\theta$ be the current parameters and $\eta > 0$ the learning rate. Define the one-step updates
+\begin{align}
+    \theta_\text{SFT}^+ &= \theta - \eta (g_{\bk} + g_e + g_\rvc), \\
+    \theta_\text{mSFT}^+ &= \theta - \eta (g_{\bk} + g_\rvc).
+\end{align}
+Under Assumptions~\ref{assm:smoothness}--\ref{assm:bounded_gradients}, the masked update achieves lower expected $\bk$ cross-entropy:
+\begin{equation}
+    \E\left[\gL_{\bk}(\theta_\text{mSFT}^+)\right] \leq \E\left[\gL_{\bk}(\theta_\text{SFT}^+)\right] - \Gamma_{\bk},
+\end{equation}
+where $\Gamma_{\bk} \geq 0$ is the improvement gap defined in the proof.
+\end{proposition}
+
+\begin{proof}
+We define  $g_m := g_{\bk} + g_\rvc$, $u_m = -\eta g_m$ and $u_s = -\eta(g_m + g_e)$ for brevity.
+By applying Lemma~\ref{lemma:second_order_remainder} to $f = \gL_{\bk}$, there exist remainders $r_m, r_s$ with $|r_m| \leq \frac{L}{2}\|u_m\|^2$ and $|r_s| \leq \frac{L}{2}\|u_s\|^2$ such that:
+\begin{align}
+    \gL_{\bk}(\theta_\text{mSFT}^+) &= \gL_{\bk}(\theta) + \langle g_{\bk}, u_m \rangle + r_m,  \label{eq: l undo msft}\\
+    \gL_{\bk}(\theta_\text{SFT}^+) &= \gL_{\bk}(\theta) + \langle g_{\bk}, u_s \rangle + r_s. \label{eq: l undo sft}
+\end{align}
+Subtracting Equation~\ref{eq: l undo msft} from Equation~\ref{eq: l undo sft} yields:
+\begin{align}
+    \gL_{\bk}(\theta_\text{SFT}^+) - \gL_{\bk}(\theta_\text{mSFT}^+) &= \langle g_{\bk}, u_s - u_m \rangle + (r_s - r_m) \\
+    &= -\eta \langle g_{\bk}, g_e \rangle + (r_s - r_m).
+\end{align}
+Since $|r_s - r_m| \leq |r_s| + |r_m|$, we obtain:
+\begin{equation}
+    \gL_{\bk}(\theta_\text{SFT}^+) - \gL_{\bk}(\theta_\text{mSFT}^+) \geq -\eta \langle g_{\bk}, g_e \rangle - \frac{L\eta^2}{2}\left(\|g_m + g_e\|^2 + \|g_m\|^2\right).
+\end{equation}
+Taking expectations and applying Assumption~\ref{assm:gradient_conflict}(a) gives:
+\begin{equation}
+    \E[-\langle g_{\bk}, g_e \rangle] \geq \alpha_{\bk} \E[\|g_e\|^2].
+\end{equation}
+
+Applying Assumption~\ref{assm:bounded_gradients}, i.e., $\E[\|g_m\|^2 + \|g_m + g_e\|^2] \leq C \E[\|g_e\|^2]$, we obtain:
+\begin{equation}
+    \E\left[\gL_{\bk}(\theta_\text{SFT}^+) - \gL_{\bk}(\theta_\text{mSFT}^+)\right] \geq \left(\eta \alpha_{\bk} - \frac{L\eta^2 C}{2}\right) \E\left[\|g_e\|^2\right] = \Gamma_{\bk}.
+\end{equation}
+This completes the proof.
+\end{proof}
+If the learning rate satisfies $\eta \leq \frac{2\alpha_{\bk}}{LC}$ with $\alpha_{\bk} > 0$, then $\Gamma_{\bk} \geq 0$, yielding the desired result. Since $\gL_{\bk}(\theta) = -\log p_\theta(\bk \mid \rvx, \rvp, \rve)$, lower expected cross-entropy corresponds to higher expected log-probability of $\bk$ under mSFT.
+
+
+\subsection{Proof of Proposition~\ref{theorem: masked sft} Part (b)}
+
+\begin{proposition}[Corrective Generation, restated]
+Let $\gL_\rvc(\theta) = -\log p_\theta(\rvc \mid \rvx, \rvp, \rve, \rvb)$ denote the correction cross-entropy. Under Assumptions~\ref{assm:smoothness}--\ref{assm:bounded_gradients}, the masked update achieves lower expected correction cross-entropy:
+\begin{equation}
+    \E\left[\gL_\rvc(\theta_\text{mSFT}^+)\right] \leq \E\left[\gL_\rvc(\theta_\text{SFT}^+)\right] - \Gamma_\rvc,
+\end{equation}
+where $\Gamma_\rvc \geq 0$ is the improvement gap.
+\end{proposition}
+
+\begin{proof}
+The proof follows the same structure as Part (a), replacing the $\bk$ loss with the correction loss. 
+Applying Lemma~\ref{lemma:second_order_remainder} to $f = \gL_\rvc$ with $u_m = -\eta g_m$ and $u_s = -\eta(g_m + g_e)$ gives:
+\begin{equation}
+    \gL_\rvc(\theta_\text{SFT}^+) - \gL_\rvc(\theta_\text{mSFT}^+) = -\eta \langle g_\rvc, g_e \rangle + (r_s - r_m),
+\end{equation}
+with $|r_s| \leq \frac{L}{2}\|u_s\|^2$ and $|r_m| \leq \frac{L}{2}\|u_m\|^2$. Using $|r_s - r_m| \leq |r_s| + |r_m|$:
+\begin{equation}
+    \gL_\rvc(\theta_\text{SFT}^+) - \gL_\rvc(\theta_\text{mSFT}^+) \geq -\eta \langle g_\rvc, g_e \rangle - \frac{L\eta^2}{2}\left(\|g_m + g_e\|^2 + \|g_m\|^2\right).
+\end{equation}
+Taking expectations and applying Assumption~\ref{assm:gradient_conflict}(b) gives $\E[-\langle g_\rvc, g_e \rangle] \geq \alpha_\rvc \E[\|g_e\|^2]$, while Assumption~\ref{assm:bounded_gradients} provides $\E[\|g_m\|^2 + \|g_m + g_e\|^2] \leq C \E[\|g_e\|^2]$. Therefore:
+\begin{equation}
+    \E\left[\gL_\rvc(\theta_\text{SFT}^+) - \gL_\rvc(\theta_\text{mSFT}^+)\right] \geq \left(\eta \alpha_\rvc - \frac{L\eta^2 C}{2}\right) \E\left[\|g_e\|^2\right] = \Gamma_\rvc.
+\end{equation}
+This completes the proof.
+\end{proof}
+Again, if $\eta \leq \frac{2\alpha_\rvc}{LC}$, then $\Gamma_\rvc \geq 0$, yielding the desired result. 
+Lower expected correction cross-entropy corresponds to higher expected log-probability of generating correct continuations under mSFT.
+
+\subsection{Proof of Proposition~\ref{theorem: masked sft} Part (c)}
+
+\begin{proposition}[Reduced Negative Learning, restated]
+Let $s_\theta \coloneqq \log p_\theta(\rve \mid \rvx, \rvp)$ denote the error-score, and define $L_e(\theta) = -s_\theta$ (the error cross-entropy) with gradient $g_e = \nabla_\theta L_e(\theta)$. Under Assumptions~\ref{assm:smoothness}--\ref{assm:bounded_gradients}, SFT increases the expected error-score more than mSFT:
+\begin{equation}
+    \E\left[s(\theta_\text{SFT}^+)\right] \geq \E\left[s(\theta_\text{mSFT}^+)\right] + \Gamma_e,
+\end{equation}
+where $\Gamma_e \geq 0$ is the negative learning gap.
+\end{proposition}
+
+\begin{proof}
+Define $g_m = g_{\bk} + g_\rvc$, with $\theta_\text{mSFT}^+ = \theta - \eta g_m$ and $\theta_\text{SFT}^+ = \theta - \eta(g_m + g_e)$. Applying Lemma~\ref{lemma:second_order_remainder} to $f = s_\theta$ (the error-score), with $u_m = -\eta g_m$ and $u_s = -\eta(g_m + g_e)$, there exist remainders satisfying:
+\begin{align}
+    s(\theta_\text{mSFT}^+) &= s(\theta) + \langle \nabla s(\theta), u_m \rangle + r_m, \\
+    s(\theta_\text{SFT}^+) &= s(\theta) + \langle \nabla s(\theta), u_s \rangle + r_s,
+\end{align}
+with $|r_m| \leq \frac{L}{2}\|u_m\|^2$ and $|r_s| \leq \frac{L}{2}\|u_s\|^2$. Subtracting gives:
+\begin{equation}
+    s(\theta_\text{SFT}^+) - s(\theta_\text{mSFT}^+) = \langle \nabla s(\theta), -\eta g_e \rangle + (r_s - r_m).
+\end{equation}
+Since $L_e(\theta) = -s(\theta)$, we have $\nabla s(\theta) = -g_e$, so $\langle \nabla s(\theta), -\eta g_e \rangle = \eta \|g_e\|^2$. Using $|r_s - r_m| \leq |r_s| + |r_m|$:
+\begin{equation}
+    s(\theta_\text{SFT}^+) - s(\theta_\text{mSFT}^+) \geq \eta \|g_e\|^2 - \frac{L\eta^2}{2}\left(\|g_m + g_e\|^2 + \|g_m\|^2\right).
+\end{equation}
+Taking expectations and applying Assumption~\ref{assm:bounded_gradients} gives $\E[\|g_m\|^2 + \|g_m + g_e\|^2] \leq C \E[\|g_e\|^2]$. Therefore:
+\begin{equation}
+    \E\left[s(\theta_\text{SFT}^+) - s(\theta_\text{mSFT}^+)\right] \geq \left(\eta - \frac{L\eta^2 C}{2}\right) \E\left[\|g_e\|^2\right] = \Gamma_e.
+\end{equation}
+This completes the proof.
+\end{proof}
+If $\eta \leq \frac{2}{LC}$, then $\Gamma_e \geq 0$, yielding the desired result. This shows that SFT increases the expected log-probability of error tokens more than mSFT does, confirming that masking reduces negative learning.

@@ -1,0 +1,162 @@
+\begin{table*}[htbp]
+    \centering
+     \caption{
+        \textbf{\modelname ablation experiments.} The highlighted row in gray is our proposed method. 
+    } \label{tab: ablation}
+    \begin{minipage}[t]{0.31\textwidth}
+     \centering
+      \subcaption{
+        \textbf{Token Initialization.} Semantic-based initialization is most effective way for token initialization. 
+        } \label{subtab: initialization}
+        % \vspace{-1.5mm}
+        \resizebox{!}{1.5cm}{  
+        \begin{tabular}{cccc}
+        \toprule
+         \textbf{Model} &  \bk   &  \textbf{\textsc{Gsm8k}} & \textbf{\textsc{Math}} \\
+           \midrule
+           \multirow{3}{*}{\shortstack[c]{Llama-3.2\\(1B)}} 
+           & Cent. &  30.3 & 14.1 \\
+           & Ctx. &  31.2 & 14.9\\ 
+           & \cellcolor{Gray} Sem. &  \cellcolor{Gray}\textbf{31.3} & \cellcolor{Gray}\textbf{15.2}\\
+           \midrule 
+           \multirow{3}{*}{\shortstack[c]{Qwen3\\(4B)}}
+           & Cent. &  84.0 & 68.4\\
+           & Ctx. &  85.8 & 69.2\\ 
+           & \cellcolor{Gray} Sem. &  \cellcolor{Gray}\textbf{86.1} & \cellcolor{Gray}\textbf{69.5}\\
+        \bottomrule
+        \end{tabular}
+        } 
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.31\textwidth}
+            \centering
+             \subcaption{
+            \textbf{Supervised Training.} mSFT demonstrates best efficacy over $\gD_\text{aug}$ that contains error tokens. 
+            } \label{subtab: sft}
+            % \vspace{-1.5mm}
+            \resizebox{!}{1.5cm}{
+            \begin{tabular}{cccc}
+            \toprule
+             \textbf{Model} & \textbf{Method}   &  \textbf{\textsc{Gsm8k}} & \textbf{\textsc{Math}}\\
+              \midrule
+             \multirow{3}{*}{\shortstack[c]{Llama-3.2\\(1B)}} &  
+             Base. & 8.8 & 3.2 \\
+                &SFT  &  7.8 & 2.1 \\
+                & \cellcolor{Gray} mSFT & \cellcolor{Gray}  \textbf{19.3} & \cellcolor{Gray}  \textbf{11.3} \\
+            \midrule
+             \multirow{3}{*}{\shortstack[c]{Llama-3.1\\(8B)}} &  
+             Base.  &  53.3 &  23.1 \\
+               & SFT &  50.1 & 21.1 \\
+               & \cellcolor{Gray}  mSFT & \cellcolor{Gray} \textbf{59.6} & \cellcolor{Gray} \textbf{30.9}\\
+            \bottomrule
+            \end{tabular}
+            } 
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.31\textwidth}
+        \centering
+         \subcaption{
+        \textbf{Reward Function.} 
+        Each component contributes to the overall performance, and our reward design outperforms prior arts.
+        } \label{subtab: reward}
+        % \vspace{-1.5mm}
+        \resizebox{!}{1.5cm}{
+        \begin{tabular}{cccc}
+        \toprule
+        \textbf{Model} & $\boldsymbol{\gR}$ & \textbf{\textsc{Gsm8k}} & \textbf{\textsc{Math}} \\
+        \midrule
+        \multirow{6}{*}{\shortstack[c]{Llama-3.2\\(1B)}} 
+            & \cellcolor{Gray} Both & \cellcolor{Gray}  \textbf{31.3} &\cellcolor{Gray} \textbf{15.2}\\
+            &  w/o $\gR_\text{inc}$ &28.3 & 14.1 \\
+            & w/o $\gR_\text{pen}$ & 30.4 & 13.5\\ 
+        \cmidrule(lr){2-4}
+        & BSAFE+ & 31.1 & \textbf{15.2}\\ 
+        & SCoRe & 29.9 & 14.1\\ 
+        & MGRPO & 30.2 & 14.8\\
+        \bottomrule
+        \end{tabular}
+        }
+    \end{minipage}
+    \\
+    \begin{minipage}[t]{0.31\textwidth}
+        \centering 
+        \vspace{1mm}
+        \subcaption{
+            \textbf{GRPO.} Employing GRPO with our multi-objective rewards enhances model performance in reasoning tasks.
+        } \label{subtab: grpo}
+        % \vspace{-1.5mm}
+        \resizebox{!}{1.5cm}{
+        \begin{tabular}{cccc}
+        \toprule
+        \textbf{Model} & \textbf{Method} & \textbf{GRPO} &\textbf{\textsc{Gsm8k}} \\
+        \midrule
+           \multirow{6}{*}{\shortstack[c]{Llama-3.2\\(1B)}}    
+            & \multirow{2}{*}{Base.} & \ding{55} & 8.8\\
+            & & \ding{51} & 25.0 \\
+            \cmidrule(lr){2-4}
+            & \multirow{2}{*}{SFT}  & \ding{55} & 7.8\\
+            &  & \ding{51} & 23.9 \\
+            \cmidrule(lr){2-4}
+            & \multirow{2}{*}{mSFT} & \ding{55} & 19.3 \\
+            &  & \cellcolor{Gray}\ding{51} & \cellcolor{Gray} \textbf{31.1} \\   
+        \bottomrule
+        \end{tabular}
+        }
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.31\textwidth}
+        \centering
+        \vspace{1mm}
+        \subcaption{
+        \textbf{Sequence Augmentation.} Learning erase actions from true error distributions brings more performance gain than others.
+        } \label{subtab: augmentation}
+        % \vspace{-1.5mm}
+        \resizebox{!}{1.5cm}{
+        \begin{tabular}{cccc}
+        \toprule
+          \textbf{Model}   & \textbf{Aug.} &  \textbf{\textsc{Gsm8k}} &  \textbf{\textsc{Math}}\\
+          \midrule
+           \multirow{3}{*}{\shortstack[c]{Llama-3.2\\(1B)}}  
+            &  Rand. & 28.0 &  13.2\\
+             &  Hard &  30.9 & --  \\ 
+             & \cellcolor{Gray} Ours & \cellcolor{Gray} \textbf{31.3} & \cellcolor{Gray}\textbf{15.2} \\
+        \midrule
+        \multirow{3}{*}{\shortstack[c]{Qwen3\\(4B)}} 
+            &  Rand. & 85.1 & 68.3 \\
+             & Hard & 85.8 & --\\ 
+             & \cellcolor{Gray} Ours & \cellcolor{Gray} \textbf{86.1} & \cellcolor{Gray}\textbf{69.5}\\
+        \bottomrule
+        \end{tabular}
+        }
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.31\textwidth}
+        \centering
+        \vspace{1mm}
+        \subcaption{
+        \textbf{Positional Encoding.} Altering positional encodings does not contribute the result in \modelname.
+        } \label{subtab: position}
+        % \vspace{-1.5mm}
+        \resizebox{!}{1.5cm}{
+        \begin{tabular}{cccc}
+        \toprule
+          \textbf{Model}   & \textbf{Pos.} &  \textbf{\textsc{Gsm8k}} &  \textbf{\textsc{Math}}\\
+          \midrule
+           \multirow{2}{*}{\shortstack[c]{Llama-3.2\\(1B)}}  
+          & \cellcolor{Gray} \ding{55} & \cellcolor{Gray} \textbf{31.3} & \cellcolor{Gray} \textbf{15.2} \\
+          & \ding{51} & 29.8 & 15.1 \\
+          \midrule 
+           \multirow{2}{*}{\shortstack[c]{Llama-3.1\\(8B)}} 
+           & \cellcolor{Gray} \ding{55} & \cellcolor{Gray}\textbf{63.4} & \cellcolor{Gray}\textbf{36.2}\\
+          & \ding{51} & 60.2 & 34.1 \\
+        \midrule
+        \multirow{2}{*}{\shortstack[c]{Qwen3\\(4B)}} 
+           & \cellcolor{Gray} \ding{55} & \cellcolor{Gray}\textbf{86.1} & \cellcolor{Gray}\textbf{69.5}\\
+          & \ding{51} & 81.4 & 65.6\\
+        \bottomrule
+        \end{tabular}
+        }
+    \end{minipage}
+   
+    
+\end{table*}

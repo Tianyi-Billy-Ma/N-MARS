@@ -1,0 +1,165 @@
+\begin{figure*}[ht!]
+    \includegraphics[width=0.98\linewidth]{figs/icml framework.pdf}
+    \caption{The overall framework of \textbf{\modelname}.
+    Left: \modelname samples sequence in a non-monotonic manner. 
+    In a single forward pass, when a token\bk is sampled as the next token, \modelname erases the last token, and traces back to the previous token in the sequence. 
+    Right: The designed training paradigm of \modelname. We first sample an initial response, then augment the sequence based on the sampled response by adding error tokens, followed by the same number of \bk and the rest of the reference tokens.
+    Afterward, we employ masked SFT that fine-tunes the model to identify and correct errors through token \bk and further employ GRPO to incentivize correct behaviors while penalizing stuttering or under correction.
+    }
+    \label{fig: framework}
+\end{figure*}
+
+\section{Methodology}
+
+We formulate the autoregressive sequence modeling problem as Markov Decision Process (MDP), denoted as $\gM = (\gS, \gA, \gP, r, \gamma)$, with state space $\gS$, finite action space $\gA$, transition kernel $\gP: \gS \times \gA \rightarrow \Delta(\gS)$, reward function $r: \gS \times \gA \rightarrow [R_\text{min}, R_\text{max}]$, and discount factor $\gamma \in (0, 1)$.
+The state space $\gS$ is the set of all sequences, where each state $s_t = (x_1, \ldots, x_t)$ is a sequence of tokens from the vocabulary $\gV$, and 
+the action space $\gA$ is a finite set of the vocabulary $\gV$, i.e., $\gA = \gV$.
+A policy $p_\theta$ parameterized by $\theta$ is a distribution over the next token on the current state: 
+\begin{align}
+    p_\theta (x_{t+1}) = \prod_{i=1}^{T} p_\theta(x_{i+1} | x_{\le i}).
+\end{align}
+In our case, the initial state is given by a special token $\langle \text{bos} \rangle$, and end sequence token $\langle \text{eos} \rangle$ induces a terminal state. 
+Moreover, the erase action is appended to the actions space, i.e., $\gA = \gV \cup \{\bk\}$, where the action \bk indicates to erase the last token in the current sequence.
+
+\subsection{Sequence Alignment Augmentation} \label{sec: sequence augmentation}
+To train a policy model $p_\theta$ that recognizes and corrects errors via the erase action, we introduce a data augmentation procedure based on sequence alignment~\cite{myers1986nd}.
+Given a prompt sequence $\rvx$ and reference completion $\rvy = (y_1, \ldots, y_n)$ from dataset $\gD_\text{ori}$, we first sample a completion from the policy model:
+\begin{equation}
+    \hat{\rvy} = (\hat{y}_1, \hat{y}_2, \ldots, \hat{y}_m) \sim p_\theta(\cdot | \rvx).
+\end{equation}
+Afterward, we compute the maximal matching blocks between the reference and generated sequence:
+\begin{equation}
+     \mathcal{M}(\rvy, \hat{\rvy}) = \{(a_i, b_i, \ell_i)\}_{i=1}^{K}, \text{ s.t. } y_{a_i : a_i + \ell_i} = \hat{y}_{b_i : b_i + \ell_i},
+\end{equation}
+where the decomposition is constrained to be:
+\begin{itemize}[leftmargin=*, noitemsep, topsep=-1pt]
+    \item Maximal: No block can be extended in either direction.
+    \item Non-overlapping: $a_i + \ell_i \leq a_{i+1}$ and $b_i + \ell_i \leq b_{i+1}$.
+    \item Order-preserving: $a_1 < \cdots < a_K$ and $b_1 < \cdots < b_K$.
+\end{itemize}
+From this decomposition, we identify error indices as positions in $\hat{\rvy}$ not covered by any matching block:
+\begin{equation}
+    \mathcal{E} = \{1, \ldots, m\} \setminus \bigcup_{i=1}^{K} [b_i, b_i + \ell_i).
+\end{equation}
+The augmented training sequence $\rvy^*$ is constructed by processing $\hat{\rvy}$ sequentially, preserving matched tokens $\rvp$ while appending tokens \bk and corrections $\rvc_i$ after each error span $\rve_i \in \gE$. For the segment between matching blocks $i$ and $i+1$:
+\begin{align} \label{eq: gold label}
+    \rvy^* = & (\ldots, \underbrace{\hat{y}_{b_i}, \ldots, \hat{y}_{b_i + \ell_i - 1}}_{\text{matched sequence } \rvp_i}, \underbrace{\hat{y}_{b_i + \ell_i}, \ldots, \hat{y}_{b_{i+1} - 1}}_{\text{error span } \rve_i}, \notag \\
+    &\underbrace{
+       \bk , \ldots, \bk
+    }_{\text{$k_i$ erase actions } \rvb_i}, \underbrace{y_{a_i + \ell_i}, \ldots, y_{a_{i+1} - 1}}_{\text{corrections } \rvc_i}, \ldots),
+\end{align}
+where $k_i = b_{i+1} - (b_i + \ell_i)$ denotes the number of error tokens between blocks $i$ and $i+1$.
+As a result, we obtain the augmented dataset $\gD_\text{aug} = \{\{\rvx_j, \rvy^*_j\}\}_j$.
+
+Besides the augmentation across real generations, we also explore two additional augmentation methods, i.e., stochastic error injection and hard sample sequence augmentation, and discuss the comparisons and insights in Section~\ref{sec: ablation training recipe}.
+
+\subsection{Masked Supervised Fine-Tuning}
+To train policy model $p_\theta$ to understand the action \bk, we adopt supervised fine-tuning (SFT) on the error-correction traces in dataset $\gD_\text{aug}$.
+However, standard SFT over these sequences induces {negative learning}~\cite{kumar2024training},
+since it explicitly minimizes the negative log-likelihood of error tokens, thereby encouraging error generation.
+To address this, we propose {Masked Supervised Fine-Tuning} (\textbf{mSFT}), a selective gradient optimization strategy. 
+Formally, let $\mathbf{y}^* = (y_1, \ldots, y_T)$ be an augmented reference sequence from Equation~\ref{eq: gold label}, we define a binary mask $M \in \{0, 1\}^T$ where $M_t = 0$ if $y_t$ belongs to error spans, and $M_t = 1$ otherwise.
+Afterward, the mSFT objective is defined as:
+\begin{align}\label{eq:masked_sft}
+    \mathcal{L}_{\text{mSFT}}(\theta) = -\mathbb{E}_{(\rvx, \rvy^*)\sim \gD_\text{aug}}\sum_{t=1}^{T} M_t \log p_\theta(y_t \mid y_{<t}, \mathbf{x}).
+\end{align}
+By masking the error positions via $M$, we effectively zero out the gradient contribution from error tokens, i.e., $\nabla_\theta \mathcal{L} \mid_{y_t \in \mathbf{e}} = 0$. 
+This ensures the model treats errors solely as context for detecting the need to erase, without being trained to generate them.
+Our proposed mSFT is theoretically grounded in Partial SGD~\citep{mohtashami2022masked}, which proves that stochastic gradient descent converges to the optimal solution even when gradients are computed on a subset of dimensions, provided the masking preserves the target distribution.
+Mechanistically, this parallels the {Selective Gradient Masking} recently formalized for unlearning \citep{shilov2025beyond}, converting the error tokens into negative context \citep{liu2023chain} that conditions the subsequent repair without updating the policy towards error generation.
+
+We now provide theoretical justification for mSFT. 
+Our analysis establishes that masking error tokens during training yields improvements in error detection, corrective generation, and alleviates negative learning, comparing to SFT.
+
+\textbf{Setup.} Let $({\rvx}, \rvy^*) \sim \gD_\text{aug}$ denote a backtrack trace where $\rvy^* = (\rvp, \rve, \rvb, \rvc)$ consists of a matched sequence $\rvp$, error span $\rve = (e_1, \ldots, e_k)$, a sequence of erase tokens $\rvb = (\bk, \ldots, \bk)$ with $|\rvb| = k$, and correction $\rvc$, obtained in Section~\ref{sec: sequence augmentation}. The mask is $M_t = 0$ for positions $t \in \rve$ and $M_t = 1$ otherwise. 
+Both SFT and mSFT condition on the identical context for learning, and only differ in the tokens that contribute to the loss.
+
+\begin{proposition}[mSFT Improves Self-Correction Learning]\label{theorem: masked sft}
+   Let $p_{\theta_\text{SFT}}$ and $p_{\theta_\text{mSFT}}$ be the policy models obtained by minimizing the SFT and Masked SFT objectives $\gL_\text{SFT}$ and $\mathcal{L}_{\text{mSFT}}$ on augmented traces, respectively. 
+   Under smoothness, gradient conflict, and bounded gradient conditions (see Appendix~\ref{app: proofs}), a single gradient step satisfies:
+   \begin{enumerate}[label=(\alph*), leftmargin=*, noitemsep, topsep=-1pt]
+       \item \textbf{Error Detection}: mSFT achieves lower expected $\bk$ cross-entropy:
+       \begin{equation}
+           \E\left[\gL_{\bk}(\theta_\text{mSFT}^+)\right] \leq \E\left[\gL_{\bk}(\theta_\text{SFT}^+)\right] - \Gamma_{\bk}.
+       \end{equation}
+       \item \textbf{Corrective Generation}: mSFT achieves lower expected correction cross-entropy:
+       \begin{equation}
+           \E\left[\gL_\rvc(\theta_\text{mSFT}^+)\right] \leq \E\left[\gL_\rvc(\theta_\text{SFT}^+)\right] - \Gamma_\rvc.
+       \end{equation}
+         \item \textbf{Reduced Negative Learning}: SFT increases error log-probability more than mSFT:
+         \begin{equation}
+             \E\left[\log p_{\theta_\text{SFT}^+}(\rve \mid \rvx, \rvp)\right] \geq \E\left[\log p_{\theta_\text{mSFT}^+}(\rve \mid \rvx, \rvp)\right] + \Gamma_e.
+         \end{equation}
+   \end{enumerate}
+   The gaps $\Gamma_{\bk}, \Gamma_\rvc, \Gamma_e$ are non-negative for sufficiently small learning rates $\eta$.
+\end{proposition}
+
+\begin{proof}[Proof Sketch]
+Let $g_{\bk}$, $g_\rvc$, and $g_e$ denote the gradients of the $\bk$, correction, and error losses, respectively. 
+SFT updates with the full gradient $g_{\bk} + g_e + g_\rvc$, while mSFT updates with the masked gradient $g_m = g_{\bk} + g_\rvc$. 
+
+Applying the Descent Lemma~\citep{nesterov2013introductory} to compare loss changes under both updates, the difference reduces to the inner product $\langle g_{\bk}, g_e \rangle$ (for part a) or $\langle g_\rvc, g_e \rangle$ (for part b). Under the gradient non-alignment assumption~\citep{yu2020gradient}, these inner products are non-positive in expectation, meaning the error gradient conflicts with learning $\bk$ and correction tokens. Removing $g_e$ from the update thus improves learning of both components. For part (c), since $\nabla_\theta \log p_\theta(\rve) = -g_e$, the SFT update directly increases error probability via $\eta\|g_e\|^2$, while mSFT avoids this negative learning effect. Full proofs are in Appendix~\ref{app: proofs}.
+\end{proof}
+
+\textbf{Discussion.}
+Proposition~\ref{theorem: masked sft} provides theoretical justification for why masking error tokens during training improves self-correction learning. 
+The results reveal a fundamental tension in training on augmented traces, i.e., while the model must {observe} error tokens to learn when to invoke $\bk$, {optimizing} their likelihood creates competing gradients that interfere with learning the correction mechanism itself.
+By masking error tokens, mSFT resolves this tension.
+Specifically, the model still conditions on errors, i.e., preserving the context needed for self-correction, while avoiding reinforcing error generation.
+This yields simultaneous improvements in error detection (part a), corrective generation (part b), and reduced negative learning (part c).
+
+
+\subsection{Reinforcement Learning with Feedback}
+Following mSFT, we further employ reinforcement learning (RL) to refine the policy $p_\theta$, encouraging optimal utilization of \bk and proactive error detection and correction.
+
+\textbf{Reward Function.} 
+The reward function $\gR$ is computed after the raw trajectory $\tau \sim p_\theta(\cdot | \rvx)$ for shaping the model behavior.
+To effectively guide the model's learning, we design a multi-objective reward function that (i) incentivizes final sequence correctness ($\gR_\text{inc}$), while (ii) regulates the usage of the \bk token based on outcome ($\gR_\text{pen}$).
+The reward function is formulated as follows:
+\begin{equation}
+    \gR(\tau) = \gR_\text{inc} + \gR_\text{pen},
+\end{equation}
+where $\gR_\text{inc} \in \{-1, 1\}$ is a rule-based verifier that returns $1$ if the final output $\tau^*$ is correct and $-1$ otherwise.
+Here $\tau^*$ denotes the post-processed sequence which we discuss in Section~\ref{sec: inference}.
+The component $\gR_\text{pen}$ regulates \bk usage by {rewarding} erase actions when it leads to correct outputs and {penalizing} it when the output remains incorrect:
+\begin{equation}
+    \gR_\text{pen} = \begin{cases}
+        +1.0, & \text{if } \gR_\text{inc} = 1 \text{ and } N_{\bk}(\tau) \le \kappa |\tau|, \\
+        + 0.5 & \text{if } \gR_\text{inc} = 1 \text{ and } N_{\bk}(\tau) > \kappa |\tau|, \\
+        -1.0, & \text{Otherwise},
+    \end{cases}
+\end{equation}
+where $N_{\bk}(\tau)$ counts the number of \bk tokens in the trajectory $\tau$,  and $\kappa$ denotes a budget for \bk tokens with respect to size $|\tau|$.
+When a correct output is obtained, the policy model is rewarded to the \bk token usage, as it contributed to successful self-correction.
+Conversely, when the output is incorrect, the policy model is penalized, as it represents wasted computation that failed to improve the result.
+Furthermore, this reward design \textbf{encourages early error detection}, i.e., since correcting an error at position $t$ requires erasing all tokens generated after $t$, early detection yields a more favorable reward controlled by $\kappa$.
+
+% \textbf{Design Rationale.}
+% Together, these two reward components create a principled learning signal for self-correction.
+% The accuracy reward $\gR_\text{inc}$ provides a direct incentive for producing correct final outputs, while the penalty reward $\gR_\text{pen}$ prevents the model from exploiting backtracking without genuine improvement.
+% This design ensures the model learns not only \textit{how} to use the \bk token, but crucially \textit{when} to use it: backtracking is reinforced only when it leads to measurable accuracy gains.
+% Consequently, the model avoids degenerate behaviors such as excessive or random backtracking, and instead develops targeted, efficient self-correction strategies.
+\input{tables/ablation}
+\textbf{Optimization.}
+Given the reward function $\gR(\tau, \rvy^*)$, we optimize the policy model $p_\theta$ using Group Relative Policy Optimization (GRPO)~\citep{shao2024deepseekmath}.
+For each prompt $\rvx$, we sample a group of $G$ trajectories $\{\tau_i\}_{i=1}^G$ from the current policy, compute rewards $r_i = \gR(\tau_i, \rvy^*)$, and derive group-normalized advantages:
+\begin{equation}
+    A_i = \frac{r_i - \text{mean}(\{r_j\}_{j=1}^G)}{\text{std}(\{r_j\}_{j=1}^G)}.
+\end{equation}
+Afterwards, the GRPO objective is defined as:
+\begin{align}
+    \gL_\text{GRPO}(\theta) = &-\E_{ \{\rvx, \rvy^*\}\sim \gD_\text{aug}, \{\tau_i\}_{i=1}^G \sim p_{\theta_\text{old}}(\cdot | \rvx )} \\
+    & \left[ \frac{1}{G} \sum_{i=1}^G \min\left( \rho_i A_i, \text{clip}(\rho_i, 1{-}\epsilon, 1{+}\epsilon) A_i \right) \right] \\
+    & + \beta \KL(p_\theta \| p_\text{ref}),
+\end{align}
+where $\rho_i = p_\theta(\tau_i|\rvx) / p_{\theta_\text{old}}(\tau_i|\rvx)$ is the importance ratio, $\epsilon$ is the clipping threshold, $\beta$ is the KL penalty coefficient, and $p_\text{ref}$ is the reference policy.
+Through GRPO with our multi-objective reward $\gR$, the model is jointly trained to produce accurate final outputs and to utilize the \bk token judiciously, i.e., erasing only when it yields demonstrable performance gains.
+
+\subsection{Inference as Non-Monotonic Generation} \label{sec: inference}
+We view the inference process as non-monotonic generation, where the semantic content of the sequence is not strictly append-only. 
+Specifically, the model generates a raw trajectory $\tau \sim p_\theta(\cdot | \rvx)$ autoregressively, which is then reduced to a final sequence $\rvy$ through a deterministic stack-based operator, as illustrated in Figure~\ref{fig: framework}. 
+Standard tokens are pushed onto the stack, while the \bk token triggers a pop operation that effectively deletes the previous token in the stack.
+This decoupling of the {generation} from the {semantic sequence} allows the model to explore and prune its own reasoning space dynamically.
+For example, the trajectory $\tau = (\text{The}, \text{answer}, \text{is}, 5, \bk, 4)$ leads to the final sequence $\mathbf{y} = (\text{The}, \text{answer}, \text{is}, 4)$, seamlessly correcting the error.
+
+

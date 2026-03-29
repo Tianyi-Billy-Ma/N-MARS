@@ -1,0 +1,8 @@
+\section{Conclusion}
+
+In this work, we present \modelname, a novel non-monotonic autoregressive sequence model that empowers models with the ability to self-correct errors during generation by dynamically pruning and adjusting their generation trajectories on the fly.
+To train \modelname efficiently, we propose a training paradigm that contains (i) sequence augmentation that provides training signal from true error distribution for the correction mechanism, (ii) masked SFT which selectively masks error tokens during training to prevent negative learning while teaching the model to detect and correct errors, (iii) GRPO with a multi-objective reward function that incentivizes correct final outputs while penalizing
+unnecessary or incorrect erase behaviors, encouraging early error detection
+and efficient self-correction.
+Moreover, we conduct comprehensive experiments to explore the design space of \modelname and provide actionable insights into model architecture and training design. 
+We further compare \modelname with existing SFT- and RL-based baseline methods over benchmark datasets, demonstrating the effectiveness of our proposed method.

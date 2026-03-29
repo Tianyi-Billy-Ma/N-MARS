@@ -1,0 +1,23 @@
+\begin{table}[t]
+    \centering 
+    \caption{The performance comparison over a instruction-tuned autoregressive sequence model.} \label{tab: instruct}
+    \resizebox{0.48\textwidth}{!}{
+        \begin{tabular}{ccccc}
+        \toprule 
+        \textbf{Model} & \textbf{Method} & \textbf{\textsc{Gsm8k}} & \textbf{\textsc{Math}} & \textbf{\textsc{Mbpp}}\\
+        \midrule
+        \multirow{4}{*}{\shortstack[c]{Llama-3.2\\Instruct\\(1B)}} 
+        & Few-shot & 44.4 & 30.6 & 43.8\\ 
+        & SFT & 41.9 & 26.9 & 40.4\\ 
+        & ReVISE & 52.3 & 31.5 & 54.2\\ 
+        & \cellcolor{Gray} \textbf{Ours} & \cellcolor{Gray} \textbf{53.1} &\cellcolor{Gray} \textbf{33.0} & \cellcolor{Gray} \textbf{55.6} \\
+        % \midrule
+        % \multirow{4}{*}{\shortstack[c]{Llama-3.1\\Instruct\\(8B)}} 
+        % & Few-shot &  \\ 
+        % & SFT \\ 
+        % & Revise \\ 
+        % & \textbf{Ours} & \\
+        \bottomrule
+        \end{tabular}
+    }
+\end{table}

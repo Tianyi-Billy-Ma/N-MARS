@@ -1,0 +1,199 @@
+\section{Implementation Details} \label{app: experiment setup}
+
+\subsection{Environment}
+All experiments are conducted on Linux OS equipped with four Nvidia A100 GPUs. 
+The models are implemented using PyTorch 2.4.0 with CUDA 12.1 and Python 3.11.5. 
+\subsection{Benchmark Datasets}
+\begin{itemize}[noitemsep, topsep=-1pt, leftmargin=*]
+    \item \textbf{GSM8K.} GSM8K~\cite{cobbe2021gsm8k} is a dataset of 8,790 high-quality linguistically diverse grade school math word problems. 
+    The dataset was created to support question-answering for basic mathematical problems that require multi-step reasoning.
+    We use the default train-test splits to ensure fairness and consistency across all experiments.
+    \item  \textbf{MATH.} This benchmark~\cite{hendrycks2021measuring} consists of challenging problems from high school mathematics competitions, e.g. AMC 10, AMC 12, and AIME, etc. 
+    Each problem in MATH has a full, step-by-step solution that can be used to teach models for generating answer derivations and explanations.
+    \item \textbf{MBPP.} MBPP~\cite{austin2021program} is a benchmark that contains 974 crowd-sourced Python programming problems, designed to be solvable by entry-level programmers, covering programming fundamentals and standard library functionality. 
+    Each problem consists of a task description, code solution, and 3 automated test cases.
+    We follow ReVISE~\cite{lee2025revise} to obtain the training samples.
+    Specifically, we apply CoT to GPT-4o to obtain 16 valid reasoning paths, along with corresponding code solutions that pass all test cases, as the training set.
+\end{itemize}
+\subsection{Backbone Autoregressive Sequence Models}
+We choose the state-of-the-art open-source LLMs, Llama-3.2-1B, Llama-3.1-8B, and Qwen3-4B, as our backbone autoregressive sequence models.
+We obtain these model checkpoints from official releases in Huggingface Library by Meta AI and Qwen AI, respectively.
+
+\subsection{Baseline Methods}
+We compare \modelname against the following baseline methods.
+\begin{itemize}[noitemsep, topsep=-1pt, leftmargin=*]
+    \item \textbf{SFT} (Supervised Fine-Tuning). The model is fine-tuned on ground-truth reasoning traces from the training set. This serves as the basic baseline that learns from expert demonstrations without any self-generated data.
+    \item \textbf{RFT}~\citep{yuan2023scaling}. The model first generates multiple candidate solutions per problem, then filters to retain only correct solutions (verified by answer matching). The model is subsequently fine-tuned on this self-generated, correctness-filtered dataset. 
+    \item \textbf{STaR+}~\citep{zelikman2022star}. An iterative extension of RFT where the generate-filter-train loop is repeated for multiple rounds. In each iteration, the model generates solutions, the correct ones are kept, and the model is fine-tuned on the accumulated dataset.
+    \item \textbf{ReVISE}~\citep{lee2025revise}. A two-stage approach that first trains a model via SFT on correct reasoning traces, then applies reinforcement learning to learn revision behavior. At inference time, the model can generate an initial solution and subsequently revise it in a second pass. Unlike our approach, ReVISE requires multiple generation passes for revision.
+\end{itemize}
+
+\subsection{Training Details}
+We use AdamW optimizer with learning rate $\eta = \{10^{-4}, 10^{-5}\}$ with $0.1$ warmup ratio and $0.1$ weight decay for all experiments.
+Training epochs range from 1 to 3.
+For supervised fine-tuning, the training batch size is set to 16 and 32 for evaluation.
+For reinforcement learning, the batch size is set to 4 for training with number of generation $G=8$.
+The \bk budget $\kappa$ is set to $\kappa=0.2$ for \textsc{Gsm8k} and $\kappa=0.4$ for \textsc{Math} and \textsc{Mbpp}.
+\subsection{Evaluation Setup}
+We utilize lm-evaluation-harness~\cite{eval-harness} for evaluation to ensure consistency across all experiments. 
+Specifically, for all benchmark datasets, i.e., \textsc{Gsm8k}, \textsc{Math} and \textsc{Mbpp}, we use the test splits provided on huggingface datasets library~\cite{lhoest2021datasets}.
+
+
+
+\input{sections/proof}
+
+
+\section{Token Initialization} \label{app: token initialization}
+We investigate three strategies for initializing the embedding of the special token \bk, each encoding different priors about its intended functionality.
+
+\textbf{Centroid Initialization.} 
+A baseline approach that initializes \bk as the centroid of the existing vocabulary embedding space:
+\begin{equation}
+    e_{\langle \texttt{UNDO} \rangle} = \frac{1}{|\mathcal{V}|} \sum_{w \in \mathcal{V}} e_w,
+\end{equation}
+where $\mathcal{V}$ denotes the vocabulary and $e_w$ the embedding of token $w$. This initialization makes no assumption about the token's semantics, placing it at a neutral position in the embedding space.
+
+\textbf{Context-Based Initialization.}
+We leverage the model's own representational capacity by encoding a natural language description of the token's functionality (i.e., "this token is used to delete the previous token in the response") and extracting the resulting hidden state as the initialization. This approach grounds the token embedding in the model's pretrained semantic space.
+
+\textbf{Semantic Anchor Initialization.} 
+We identify a set of $K$ lexical anchors semantically aligned with the undo operation:
+\begin{equation}
+    \mathcal{W} = \{\texttt{delete}, \texttt{remove}, \texttt{undo}, \texttt{erase}, \texttt{back}, \texttt{cancel}, \texttt{retry}, \texttt{revert}, \texttt{reset}, \texttt{clear}, \texttt{backspace}\}.
+\end{equation}
+The token embedding is initialized as the mean of these anchor embeddings:
+\begin{equation}
+    e_{\langle \texttt{UNDO} \rangle} = \frac{1}{K} \sum_{i=1}^{K} e_{w_i}, \quad w_i \in \mathcal{W}.
+\end{equation}
+This strategy encodes an explicit semantic prior, positioning the new token proximal to existing tokens with related meaning.
+
+
+\section{Additional Reward Functions} \label{app: additional reward}
+
+In Table~\ref{subtab: reward}, we explored several reward function designs from existing works~\cite{selreinforcement, kumar2024training, ding2025multi}. 
+In this section, we discuss the implementation detail of these reward function designs.
+\begin{itemize}[noitemsep, topsep=-1pt, leftmargin=*]
+    \item \textbf{BSAFE+}~\cite{selreinforcement}. 
+    BSAFE+ primarily addresses safety violations in autoregressive sequence models. Specifically, they introduce a category token \texttt{[CATEGORY]} to classify the type of violation, and a backtrack token \texttt{[BACKTRACK\_BY\_X]} that indicates the number of tokens \texttt{X} to retract preceding the backtrack token.
+    Due to these mechanistic differences, we adapt their reward function to align with our approach. Specifically, if no \bk token exists in the generated sequence, we assign $\gR(\gamma, \rvy^*) = +1.0$ when $\text{acc}(\hat{\gamma}, \hat{\rvy^*}) = 1.0$, and $\gR(\gamma, \rvy^*) = -1.0$ otherwise. When a \bk token is present, we employ a critic model (GPT-4o) to judge whether the backtracking action is warranted. If deemed necessary, we assign $\gR(\gamma, \rvy^*) = +1.0$; otherwise, $\gR(\gamma, \rvy^*) = -0.5$.
+    \item \textbf{SCoRe}~\cite{kumar2024training}.
+    SCoRe proposes a method to enable language models to self-correct their reasoning through a two-stage reinforcement learning framework. 
+    Specifically, they first train the model to improve its second-attempt responses conditioned on self-generated first attempts, then jointly optimize both attempts to prevent reward hacking.
+    Due to the lack of an official source code, we adopt code from the research community\footnote{https://github.com/daje0601/Google\_SCoRe, https://github.com/BY571/SCoRe}.
+    The reward function is defined as follows:
+    \begin{equation}
+        \gR = \begin{cases}
+            +1.0, & \text{if } \text{acc}(\hat{\tau}, \hat{\rvy}^*) = 1.0, \\
+            -1.0 &  \text{if } \text{acc}(\hat{\tau}, \hat{\tau}') = 1.0, \\
+            +0.5 , & \text{otherwise},
+        \end{cases}
+    \end{equation}
+    where, $\tau'$ denotes the response from previous epoch, and $\tau$ is the response in current epoch. 
+    Moreover, $\hat{\cdot}$ denotes the post-processed sequence we discussed in Section~\ref{sec: inference}.
+    \item \textbf{MGRPO}~\cite{ding2025multi}. MGRPO introduces a two layer hierarchical reinforcement learning framework to enhance the reasoning capabilities of language models.
+    We employ their second layer reward function to optimize the policy model, which is defined as follows:
+    \begin{equation}
+        \gR = \begin{cases}
+            +1.0, & \text{if } \text{acc}(\hat{\tau}, \hat{\rvy}^*) >  \text{acc}(\hat{\tau}', \hat{\rvy}^*), \\
+            +1.0, & \text{if } \text{acc}(\hat{\tau}, \hat{\rvy}^*) = 1.0 \text{ and } \text{acc}(\hat{\tau}', \hat{\rvy}^*) = 1.0, \\
+            -1.0, & \text{otherwise}.
+        \end{cases}
+    \end{equation}
+    Again $\tau'$ denotes the response from previous epoch, and $\tau$ is the response in current epoch, and $\hat{\cdot}$ denotes the post-processed sequence we discussed in Section~\ref{sec: inference}.
+\end{itemize}
+
+
+\section{Additional Sequence Augmentations}\label{app: sequence augmentation}
+
+In this section, we present two additional sequence augmentation methods discussed in Section~\ref{sec: sequence augmentation}.
+
+
+
+
+
+\subsection{Stochastic Error Injection}
+We randomly insert error tokens into the sequence, followed by same amount of backtrack token \bk and the correct sequence.
+Given a reference sequence $y = (y_1, \ldots, y_n)$, we sample an insertion position $i \in \{1, \ldots, n\}$ and error length $k \in \{1, \ldots, k_{\max}\}$. 
+We sample tokens $e = (e_1, \ldots, e_k)$ as error tokens, where each token $e_j$ is sampled independently from the vocabulary $\gV$:
+\begin{align}
+    e_j \sim \text{Uniform}(\mathcal{V}), \quad j \in \{1, \ldots, k\}.
+\end{align}
+The augmented sequence $y^*$ is constructed by inserting the error tokens followed by $k$ backtrack tokens at position $i$:
+\begin{align}
+    y^* = (y_1, \ldots, y_i, \overbrace{\underbrace{e_1, \ldots, e_k}_{\text{Error Sequence}}, \underbrace{\bk, \dots, \bk}_{\text{$k$ backtrack}}}^\text{Inserted Tokens}, y_{i+1}, \ldots, y_n).
+\end{align}
+In practice, the procedure generalizes to multiple insertion points. 
+Let $\mathcal{I} = \{(i_1, k_1), \ldots, (i_L, k_L)\}$ denote a set of insertion positions and corresponding error lengths, with $i_1 < i_2 < \cdots < i_L$. The augmented sequence becomes:
+\begin{align}
+    y^* = (y_1, \ldots, y_{i_1}, \overbrace{
+    \underbrace{e^{(1)}_1, \ldots, e^{(1)}_{k_1}}_\text{Error Sequence $e^{(1)}$}, 
+    \underbrace{\bk, \ldots, \bk}_\text{$k_1$ times}
+    }^\text{Inserted Tokens at $i_1$}, y_{i_1+1}, \ldots, y_{i_2}, 
+    \overbrace{\underbrace{e^{(2)}_1, \ldots, e^{(2)}_{k_2}}_\text{Error Sequence $e^{(2)}$}, 
+    \underbrace{\bk, \ldots, \bk}_\text{$k_2$ times}}^\text{Inserted Tokens at $i_2$}
+    ,\ldots, y_n)
+\end{align}
+where $e^{(j)} = (e^{(j)}_1, \ldots, e^{(j)}_{k_j})$ are independently sampled error sequences.
+
+
+\subsection{Hard Sample Sequence Augmentation}
+
+Unlike stochastic error injection that samples random tokens from the vocabulary, hard sample sequence augmentation introduces plausible but incorrect tokens that represent realistic reasoning errors.
+Given a reference sequence $\rvy = (y_1, \ldots, y_n)$ derived from a symbolic template $\mathcal{T}$, we construct an alternative sequence $\tilde{\rvy} = (\tilde{y}_1, \ldots, \tilde{y}_m)$ from a different instantiation $\tilde{\mathcal{T}}$ of the same template with modified symbolic values (e.g., different numerical constants or variable names), following GSM-Symbolic~\cite{mirzadeh2024gsm}.
+We first compute the maximal matching blocks between $\rvy$ and $\tilde{\rvy}$:
+\begin{align}
+    \mathcal{M}(\rvy, \tilde{\rvy}) = \{(a_i, b_i, \ell_i)\}_{i=1}^{K}, \text{ s.t. } y_{a_i : a_i + \ell_i} = \tilde{y}_{b_i : b_i + \ell_i}.
+\end{align}
+For each divergence point $i$ where $\rvy$ and $\tilde{\rvy}$ differ, we extract the hard error span $\tilde{\rve}_i = (\tilde{y}_{b_i + \ell_i}, \ldots, \tilde{y}_{b_{i+1} - 1})$ from $\tilde{\rvy}$ and the corresponding correct span $\rvc_i = (y_{a_i + \ell_i}, \ldots, y_{a_{i+1} - 1})$ from $\rvy$.
+The augmented sequence $\rvy^*$ is constructed by inserting the hard error tokens followed by tokens \bk at each divergence point:
+\begin{align}
+    \rvy^* = (y_1, \ldots, y_{a_i + \ell_i - 1}, \overbrace{\underbrace{\tilde{y}_{b_i + \ell_i}, \ldots, \tilde{y}_{b_{i+1} - 1}}_{\text{Hard Error Span } \tilde{\rve}_i}, \underbrace{\bk, \ldots, \bk}_{\text{$|\tilde{\rve}_i|$ backtracks}}}^{\text{Inserted Tokens}}, \underbrace{y_{a_i + \ell_i}, \ldots, y_{a_{i+1} - 1}}_{\text{Correction } \rvc_i}, \ldots, y_n).
+\end{align}
+In practice, the procedure generalizes to multiple divergence points. Let $\mathcal{D} = \{(a_1, b_1, \ell_1), \ldots, (a_L, b_L, \ell_L)\}$ denote the set of matching blocks between $\rvy$ and $\tilde{\rvy}$. For each gap between consecutive blocks, we insert the corresponding hard error span from $\tilde{\rvy}$:
+\begin{align}
+    \rvy^* = (&y_1, \ldots, y_{a_1 + \ell_1 - 1}, \overbrace{\tilde{\rve}_1, \underbrace{\bk, \ldots}_{\text{$|\tilde{\rve}_1|$ times}}}^{\text{Divergence 1}}, \rvc_1, \ldots, y_{a_2 + \ell_2 - 1}, \overbrace{\tilde{\rve}_2, \underbrace{\bk, \ldots}_{\text{$|\tilde{\rve}_2|$ times}}}^{\text{Divergence 2}}, \rvc_2, \ldots, y_n),
+\end{align}
+where $\tilde{\rve}_j$ and $\rvc_j$ denote the hard error span and correction span at divergence point $j$, respectively.
+The key distinction from stochastic error injection is that hard error tokens are {semantically coherent} within the problem context, representing the type of plausible mistakes a model might generate during reasoning, e.g., using a wrong intermediate value or applying an incorrect operation.
+
+
+\section{Result Examples} \label{app: result examples}
+
+\begin{table}[t]
+\centering
+\caption{Example of \modelname generation on \textsc{Gsm8k}, that does not require erase actions.}
+\label{tab: result 1}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{p{0.15\textwidth} p{0.75\textwidth}}
+\toprule
+\textbf{Question} & A robe takes 2 bolts of blue fiber and half that much white fiber. How many bolts in total does it take? Let's think step by step. Put your final answer at the end with ’The answer is: .’\\
+\midrule
+\textbf{Response} & The white fiber takes half the amount of the blue fiber which means $1/2 \times 2 = 1$ bolt. \\
+& So the total number of bolts is $2 + 1 = 3$ bolts. The answer is 3.\\
+\midrule
+\textbf{Target Answer}  & 3 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+\begin{table}[t]
+\centering
+\caption{Example of \modelname generation on \textsc{Gsm8k} that requires erase actions.}
+\label{tab: result 2}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{p{0.15\textwidth} p{0.75\textwidth}}
+\toprule
+\textbf{Question} & John drives for 3 hours at a speed of 60 mph and then turns around because he realizes he forgot something very important at home. He tries to get home in 4 hours but spends the first 2 hours in standstill traffic. He spends the next half-hour driving at a speed of 30mph, before being able to drive the remaining time of the 4 hours going at 80 mph. How far is he from home at the end of those 4 hours? Let's think step by step. Put your final answer at the end with ’The answer is: .’\\
+\midrule
+\textbf{Response} & He spends 4 hours driving at 30mph{\color{red}\bk\bk\bk}, but 2 hours are in standstill traffic. 
+So that leaves 4-2 = 2 hours. 
+He spends half of 2 hours at 30mph on trips so he has 30*.5 = 15 miles. 
+He has 80 mph for the remaining 4 hours{\color{red}\bk\bk}2-.5 =1.5 hours, so that is 80*1.5 = 120 miles. 
+All total, he has driven 120 + 15 = 135 miles.
+Since he is 60*3 = 180 miles away from home initially, he is 180 - 135 = 45 miles away from home. The answer is 45.\\
+\midrule
+\textbf{Target Answer}  & 45 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
