@@ -7,17 +7,17 @@ any task YAML loaded during evaluation.
 Usage
 -----
 # GSM8K with <UNDO> post-processing (default)
-python -m n_mars.evaluation.run_eval \\
+python -m n_mars.eval.run_eval \\
     --model_path outputs/nmars-llama3.2-1b-gsm8k-grpo \\
     --task nmars_gsm8k --seed 42
 
 # Vanilla GSM8K (no UNDO processing)
-python -m n_mars.evaluation.run_eval \\
+python -m n_mars.eval.run_eval \\
     --model_path outputs/nmars-llama3.2-1b-gsm8k-grpo \\
     --task gsm8k --seed 42
 
 # Limit to 100 examples for quick debugging
-python -m n_mars.evaluation.run_eval \\
+python -m n_mars.eval.run_eval \\
     --model_path outputs/nmars-llama3.2-1b-gsm8k-grpo \\
     --task nmars_gsm8k --limit 100 --seed 42
 """
@@ -87,7 +87,7 @@ def main() -> None:
     from lm_eval import simple_evaluate
     from lm_eval.tasks import TaskManager
 
-    import n_mars.evaluation.nmars_model  # noqa: F401  # registers nmars_hf model
+    import n_mars.eval.nmars_model  # noqa: F401  # registers nmars_hf model
 
     # Derive output suffix
     if args.output_suffix:

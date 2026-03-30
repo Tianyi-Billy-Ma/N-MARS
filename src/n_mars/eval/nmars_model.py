@@ -8,7 +8,7 @@ single whitespace-delimited word may span multiple BPE tokens.
 
 Usage with ``run_eval.py``::
 
-    python -m n_mars.evaluation.run_eval \\
+    python -m n_mars.eval.run_eval \\
         --model_path outputs/nmars-llama3.2-1b-gsm8k-grpo \\
         --task nmars_gsm8k --seed 42
 

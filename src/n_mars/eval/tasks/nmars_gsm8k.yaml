@@ -6,7 +6,7 @@
 #
 # Usage (ensure n_mars package is installed so the filter is importable):
 #
-#   uv run python -m n_mars.evaluation.run_eval \
+#   uv run python -m n_mars.eval.run_eval \
 #       --model_path outputs/nmars-llama3.2-1b-gsm8k-grpo \
 #       --task nmars_gsm8k --seed 42
 #
