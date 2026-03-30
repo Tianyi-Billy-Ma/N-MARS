@@ -14,8 +14,10 @@ dependencies = [
     "accelerate",
     "peft",
     "trl",
-    "flash-attn",
 ]
+
+[project.optional-dependencies]
+flash = ["flash-attn"]
 
 [build-system]
 requires = ["hatchling"]
