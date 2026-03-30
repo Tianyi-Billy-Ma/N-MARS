@@ -7,7 +7,7 @@ post-processed with stack_postprocess, and rewarded with the multi-objective
 reward. Group-normalized advantages drive the policy update.
 
 Usage:
-    python -m n_mars.training.grpo \\
+    python -m n_mars.train.grpo \\
         --model_path outputs/nmars-llama3.2-1b-gsm8k-msft \\
         --data_path data/nmars/gsm8k/augmented \\
         --output_dir outputs/nmars-llama3.2-1b-gsm8k-grpo \\
@@ -32,8 +32,8 @@ from transformers import (
     set_seed,
 )
 
-from n_mars.training.reward import compute_total_reward
-from n_mars.training.token_init import UNDO_TOKEN
+from n_mars.train.reward import compute_total_reward
+from n_mars.train.token_init import UNDO_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -297,7 +297,7 @@ def main():
             "<UNDO> token not found in tokenizer; it may not have been added during mSFT. "
             "Falling back to registering it now."
         )
-        from n_mars.training.token_init import initialize_undo_token  # noqa: PLC0415
+        from n_mars.train.token_init import initialize_undo_token  # noqa: PLC0415
         model, tokenizer = initialize_undo_token(model, tokenizer, method="semantic")
         undo_token_id = tokenizer.convert_tokens_to_ids(UNDO_TOKEN)
 

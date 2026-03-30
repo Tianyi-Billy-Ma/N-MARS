@@ -12,13 +12,16 @@
 #$ -e logs/crc/sft_$JOB_ID.err
 #$ -cwd
 
-# Usage: qsub scripts/crc/sft_train.sh configs/train/sft_template.yaml
+# Usage: qsub scripts/crc/sft_train.sh <config_path> [extra args...]
 CONFIG=${1:-configs/train/sft_template.yaml}
+shift 2>/dev/null  # remaining args passed through
 
 source scripts/crc/bashrc.sh
 
 torchrun \
   --nproc_per_node=4 \
   --master_port=29500 \
-  $(which swift) sft \
-  --config "$CONFIG"
+  -m n_mars.train.sft \
+  --config "$CONFIG" \
+  --mode train \
+  "$@"

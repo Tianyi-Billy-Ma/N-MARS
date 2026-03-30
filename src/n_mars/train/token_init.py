@@ -4,7 +4,7 @@ Three methods for initializing the <UNDO> token embedding, as described
 in the N-MARS paper Appendix.
 
 Usage:
-    from n_mars.training.token_init import initialize_undo_token
+    from n_mars.train.token_init import initialize_undo_token
 
     model, tokenizer = initialize_undo_token(model, tokenizer, method="semantic")
 """

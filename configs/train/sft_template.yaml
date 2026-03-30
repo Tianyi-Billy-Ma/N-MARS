@@ -1,22 +1,20 @@
-# ms-swift SFT training config template
-# Usage: swift sft --config configs/train/sft_template.yaml
+# SFT training config template
+# Usage: python -m n_mars.train.sft --config configs/train/sft_template.yaml
+mode: full
 
 # Model
-model: meta-llama/Llama-3.1-8B-Instruct  # or local path
-# model_revision: main
+model_name_or_path: meta-llama/Llama-3.2-1B
 
-# Dataset
-dataset:
-  - alpaca-en  # replace with target dataset
-split_dataset_ratio: 0.01
-max_length: 2048
-
-# Fine-tuning method
-tuner_type: lora
+# LoRA
+use_lora: true
 lora_rank: 8
 lora_alpha: 32
 lora_dropout: 0.05
 target_modules: all-linear
+
+# Dataset
+dataset: gsm8k
+max_length: 2048
 
 # Training
 num_train_epochs: 3
@@ -31,20 +29,19 @@ max_grad_norm: 1.0
 bf16: true
 gradient_checkpointing: true
 
-# Evaluation
-eval_strategy: steps
-eval_steps: 200
-save_strategy: steps
-save_steps: 200
-save_total_limit: 3
+# Eval
+eval_tasks: gsm8k
+eval_batch_size: "auto:32"
 
-# Output — slug: <model>-<dataset>-<timestamp>
-output_dir: outputs/llama3.1-8b-alpaca-en-20240101_120000
+# Output
+output_dir: outputs/sft-output
 
-# Logging / W&B
-report_to: wandb
-run_name: llama3.1-8b-alpaca-en-20240101_120000
+# Logging
 logging_steps: 10
+save_strategy: epoch
+save_total_limit: 3
+report_to: wandb
+wandb_project: n-mars
 
 # Misc
 seed: 42

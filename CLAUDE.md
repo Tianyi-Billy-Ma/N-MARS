@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-N-MARS (Non-Monotonic Autoregressive Sequence Models) is an LLM training and evaluation research project. It uses **ms-swift** for SFT/GRPO fine-tuning and **lm_eval** for benchmarking, with experiments tracked via **Weights & Biases** (project: `n-mars`).
+N-MARS (Non-Monotonic Autoregressive Sequence Models) is an LLM training and evaluation research project. It uses **HuggingFace Transformers + PEFT** for SFT fine-tuning, **trl** for GRPO, and **lm_eval** for benchmarking, with experiments tracked via **Weights & Biases** (project: `n-mars`).
 
 ## Package Management
 
@@ -20,17 +20,23 @@ uv run <command>           # run a command in the venv
 
 ## Common Commands
 
-### Training (ms-swift)
+### Training (HuggingFace + PEFT)
 
 ```bash
 # SFT (single GPU)
-uv run swift sft --config configs/train/sft_template.yaml
+uv run python -m n_mars.train.sft --config configs/train/sft_template.yaml
 
 # SFT (multi-GPU, 4 GPUs)
-uv run torchrun --nproc_per_node=4 $(which swift) sft --config configs/train/sft_template.yaml
+uv run torchrun --nproc_per_node=4 -m n_mars.train.sft --config configs/train/sft_template.yaml
 
-# GRPO
-uv run torchrun --nproc_per_node=4 $(which swift) rlhf --config configs/train/grpo_template.yaml
+# SFT train-only (no eval)
+uv run python -m n_mars.train.sft --config configs/train/sft_template.yaml --mode train
+
+# N-MARS masked SFT
+uv run python -m n_mars.train.masked_sft --model_name_or_path meta-llama/Llama-3.2-1B --data_path data/nmars/gsm8k/augmented --output_dir outputs/nmars-msft
+
+# N-MARS GRPO
+uv run python -m n_mars.train.grpo --model_path outputs/nmars-msft --data_path data/nmars/gsm8k/augmented --output_dir outputs/nmars-grpo
 ```
 
 ### Evaluation (lm_eval)
@@ -77,14 +83,20 @@ Both `output_dir` (ms-swift) and `output_path` (lm_eval) in YAML configs must fo
 
 ```
 configs/
-  train/         # ms-swift YAML configs (sft_template.yaml, grpo_template.yaml)
+  train/         # YAML configs (sft_template.yaml, sft_gsm8k_llama3.2-1b.yaml, grpo_template.yaml)
   eval/          # lm_eval YAML configs (gsm8k.yaml, mbpp.yaml, math500.yaml)
 external/        # third-party reference codebases (read-only, never import directly)
 outputs/         # experiment results (gitignored except .gitkeep)
 scripts/
   delta/         # SLURM scripts for UIUC Delta HPC
   crc/           # SLURM scripts for Notre Dame CRC
-src/n_mars/      # installable Python package
+src/n_mars/
+  hparams/       # hyperparameter dataclasses (SFTArguments)
+  models/        # model loading utilities (loader.py)
+  train/         # training scripts (sft.py, masked_sft.py, grpo.py, reward.py, token_init.py)
+  data/          # dataset utilities
+  evaluation/    # evaluation utilities
+  inference/     # inference utilities
 logs/            # SLURM stdout/stderr (create before submitting)
 ```
 
@@ -103,6 +115,7 @@ logs/            # SLURM stdout/stderr (create before submitting)
 - Email: `tma2@nd.edu`
 
 ```bash
+qsub scripts/crc/full.sh configs/train/sft_gsm8k_llama3.2-1b.yaml
 qsub scripts/crc/sft_train.sh configs/train/sft_template.yaml
 qsub scripts/crc/grpo_train.sh configs/train/grpo_template.yaml
 qsub scripts/crc/eval.sh configs/eval/gsm8k.yaml
@@ -127,7 +140,8 @@ mkdir -p logs/crc logs/delta
 ## Config Conventions
 
 - All configs are YAML.
-- Training configs (`configs/train/`) are ms-swift format — use `swift sft` or `swift rlhf`.
+- SFT training configs (`configs/train/sft_*.yaml`) use `SFTArguments` format — run with `python -m n_mars.train.sft --config`.
+- GRPO training configs (`configs/train/grpo_template.yaml`) use ms-swift format — use `swift rlhf`.
 - Eval configs (`configs/eval/`) are lm_eval format — use `lm_eval --config`.
 - Always set `report_to: wandb` and `run_name` matching the output slug in training configs.
 - Always set `wandb_args.project: n-mars` and `wandb_args.name` matching the slug in eval configs.
@@ -152,6 +166,8 @@ Use these IDs in the `model` field of training configs and `model_args.pretraine
 
 | Library | Purpose | Docs |
 |---------|---------|------|
-| ms-swift | SFT & GRPO fine-tuning | https://swift.readthedocs.io |
+| transformers | Model loading & SFT training | https://huggingface.co/docs/transformers |
+| peft | LoRA fine-tuning | https://huggingface.co/docs/peft |
+| trl | GRPO training | https://huggingface.co/docs/trl |
 | lm_eval | Standardised benchmarking | https://github.com/EleutherAI/lm-evaluation-harness |
 | wandb | Experiment tracking | https://docs.wandb.ai |

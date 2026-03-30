@@ -4,7 +4,7 @@ Implements Section 3.2: train on augmented sequences D_aug with error token
 positions masked from the loss (labels = -100).
 
 Usage:
-    python -m n_mars.training.masked_sft \\
+    python -m n_mars.train.masked_sft \\
         --model_name_or_path meta-llama/Llama-3.2-1B \\
         --data_path data/nmars/gsm8k/augmented \\
         --output_dir outputs/nmars-llama3.2-1b-gsm8k-msft \\
@@ -31,7 +31,7 @@ from transformers import (
     set_seed,
 )
 
-from n_mars.training.token_init import initialize_undo_token
+from n_mars.train.token_init import initialize_undo_token
 
 logger = logging.getLogger(__name__)
 

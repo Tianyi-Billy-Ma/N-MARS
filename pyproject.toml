@@ -12,6 +12,8 @@ dependencies = [
     "pyyaml",
     "torch",
     "accelerate",
+    "peft",
+    "trl",
     "flash-attn",
 ]
 
