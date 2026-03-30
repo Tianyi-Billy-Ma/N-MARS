@@ -16,7 +16,7 @@
 #       --model hf \
 #       --model_args pretrained=<model_path> \
 #       --tasks nmars_gsm8k \
-#       --include_path src/n_mars/evaluation/tasks \
+#       --include_path src/n_mars/eval/tasks \
 #       --batch_size auto:32 \
 #       --seed 42 --log_samples
 

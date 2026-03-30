@@ -5,7 +5,7 @@ description = "Non-Monotonic Autoregressive Sequence Models"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "ms-swift[llm]",
-    "lm-eval",
+    "lm-eval[math]",
     "transformers",
     "datasets",
     "wandb",

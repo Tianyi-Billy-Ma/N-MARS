@@ -153,7 +153,7 @@ def run_eval(args: SFTArguments):
         cmd.extend(["--num_fewshot", str(args.num_fewshot)])
 
     if args.max_gen_toks is not None:
-        cmd.extend(["--gen_kwargs", f"max_gen_toks={args.max_gen_toks}"])
+        cmd.extend(["--max_gen_toks", str(args.max_gen_toks)])
 
     logger.info("Running eval: %s", " ".join(cmd))
     result = subprocess.run(cmd, check=True)

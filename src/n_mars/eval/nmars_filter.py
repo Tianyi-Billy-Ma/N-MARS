@@ -10,7 +10,7 @@ This approximates the token-level stack_postprocess from
 GSM8K / MATH responses where answers live at the word/number level.
 
 Usage with lm_eval ``--include_path``:
-    lm_eval ... --include_path src/n_mars/evaluation
+    lm_eval ... --include_path src/n_mars/eval
 The task YAML references this filter by its registered name ``nmars_undo``.
 """
 

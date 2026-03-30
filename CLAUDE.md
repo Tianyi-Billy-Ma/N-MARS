@@ -95,7 +95,7 @@ src/n_mars/
   models/        # model loading utilities (loader.py)
   train/         # training scripts (sft.py, masked_sft.py, grpo.py, reward.py, token_init.py)
   data/          # dataset utilities
-  evaluation/    # evaluation utilities
+  eval/          # evaluation utilities (lm_eval wrappers, custom tasks)
   inference/     # inference utilities
 logs/            # SLURM stdout/stderr (create before submitting)
 ```

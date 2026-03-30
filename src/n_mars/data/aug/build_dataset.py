@@ -18,7 +18,7 @@ hard
 
 Usage::
 
-    python -m n_mars.augmentation.build_dataset \\
+    python -m n_mars.data.aug.build_dataset \\
         --output_dir data/augmentation/gsm8k \\
         --augmentation_method alignment \\
         --model_path meta-llama/Llama-3.1-8B \\
@@ -33,9 +33,9 @@ from pathlib import Path
 
 from datasets import Dataset, load_dataset
 
-from n_mars.augmentation.hard_sample import hard_sample_augment
-from n_mars.augmentation.sequence_alignment import build_augmented_sequence
-from n_mars.augmentation.stochastic_injection import stochastic_augment
+from n_mars.data.aug.hard_sample import hard_sample_augment
+from n_mars.data.aug.sequence_alignment import build_augmented_sequence
+from n_mars.data.aug.stochastic_injection import stochastic_augment
 
 # ---------------------------------------------------------------------------
 # Constants
