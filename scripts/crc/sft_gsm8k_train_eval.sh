@@ -12,6 +12,8 @@
 
 source scripts/crc/bashrc.sh
 
+export USE_HF=1
+
 MODEL_DIR=outputs/sft-llama3.2-1b-gsm8k
 CONFIG=configs/train/sft_gsm8k_llama3.2-1b.yaml
 
@@ -23,6 +25,10 @@ torchrun \
   $(which swift) sft \
   --config "$CONFIG"
 
+if [ $? -ne 0 ]; then
+  echo "ERROR: SFT Training failed. Skipping eval."
+  exit 1
+fi
 echo "=== SFT Training Complete ==="
 
 # ── Stage 2: Eval on GSM8K ────────────────────────────────────────────────
