@@ -7,11 +7,11 @@ model: meta-llama/Llama-3.2-1B
 # Dataset
 dataset:
   - gsm8k
-dataset_test_ratio: 0.01
+split_dataset_ratio: 0.01
 max_length: 2048
 
 # Fine-tuning method
-sft_type: lora
+tuner_type: lora
 lora_rank: 8
 lora_alpha: 32
 lora_dropout: 0.05
